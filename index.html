@@ -357,193 +357,71 @@ function printPO(req,suppList){
 }
 
 function printQuoteReq(req,suppList){
-  const s=suppList.find(x=>x.name===req.supplierName)||{};
-  const rows=req.items.filter(i=>i.name).map((it,i)=>'<tr><td style="text-align:center">'+(i+1)+'</td><td>'+it.name+'</td><td style="font-family:monospace;font-size:11px">'+(it.sku||'—')+'</td><td style="text-align:center">'+(it.qty||'—')+'</td><td style="text-align:center">'+(it.unit||'—')+'</td><td></td></tr>').join('');
-  const html='<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>בקשה להצעת מחיר</title><style>body{font-family:Arial,sans-serif;direction:rtl;padding:32px;font-size:13px;color:#1a1a1a}h1{text-align:center;color:#1B6EC2;font-size:22px;margin-bottom:4px}.sub{text-align:center;color:#6B7280;font-size:13px;margin-bottom:20px}.boxes{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}.box{background:#F9FAFB;border:1px solid #E5E7EB;padding:12px;border-radius:6px}table{width:100%;border-collapse:collapse;margin-top:16px}th{background:#EFF6FF;color:#1E40AF;padding:8px;text-align:right;font-size:12px}td{padding:7px 8px;border-bottom:1px solid #E5E7EB;font-size:12px}.notes{margin-top:14px;background:#FFFBF0;border-right:3px solid #1B6EC2;padding:8px 12px;font-size:12px}@media print{body{padding:20px}}</style></head><body>'
-    +'<h1>בקשה להצעת מחיר</h1><div class="sub">Negohoney / דבש נגוהות — נגוהות ד.נ לכיש | 079-6079078 | negohoney1@gmail.com</div>'
-    +'<div class="boxes"><div class="box"><strong>לכבוד: '+(s.name||req.supplierName||'—')+'</strong>'+(s.phone?'<br>טלפון: '+s.phone:'')+( s.email?'<br>מייל: '+s.email:'')+'</div><div class="box"><strong>תאריך: '+fmtD(req.date)+'</strong><br>נושא: '+(req.subject||'—')+'<br>תאריך אספקה מבוקש: '+fmtD(req.delivDate)+'</div></div>'
-    +'<table><thead><tr><th style="width:4%">מס\'</th><th>תיאור מוצר</th><th style="width:10%">מק"ט</th><th style="width:8%">כמות</th><th style="width:8%">יחידה</th><th style="width:14%">מחיר יחידה ₪</th></tr></thead><tbody>'+rows+'</tbody></table>'
-    +(req.notes?'<div class="notes">'+req.notes+'</div>':'')
-    +'</body></html>';
-  const w=window.open('','_blank','width=900,height=700');
-  if(w){w.document.write(html);w.document.close();setTimeout(()=>w.print(),600);}
-}
-
-/* ── LOGIN ── */
-function Login({users,onLogin}){
-  const[l,sl]=useState('');const[f,sf]=useState('');const[e,se]=useState('');
-  const go=()=>{const u=users.find(u=>u.last.trim()===l.trim()&&u.first.trim()===f.trim());u?(se(''),onLogin(u)):se('שם לא נמצא. בדקי שוב.');};
-  return h('div',{style:{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(135deg,#1B3A5C,#2563EB)'}},
-    h('div',{style:{background:'#fff',borderRadius:16,padding:'40px 36px',width:360,boxShadow:'0 20px 60px rgba(0,0,0,.25)',direction:'rtl'}},
-      h('div',{style:{textAlign:'center',marginBottom:26}},
-        h('div',{style:{fontSize:38,marginBottom:8}},'🍯'),
-        h('div',{style:{fontSize:22,fontWeight:500,color:'#1B3A5C'}},'Negohoney'),
-        h('div',{style:{fontSize:13,color:'#6B7280',marginTop:3}},'מערכת ניהול רכש')
-      ),
-      h('div',{style:{display:'flex',flexDirection:'column',gap:11}},
-        h('div',{className:'fg'},h('label',null,'שם משפחה'),h('input',{value:l,onChange:e=>sl(e.target.value),placeholder:'לדוגמה: כהן',onKeyDown:e=>e.key==='Enter'&&go()})),
-        h('div',{className:'fg'},h('label',null,'שם פרטי'),h('input',{value:f,onChange:e=>sf(e.target.value),placeholder:'לדוגמה: דינה',onKeyDown:e=>e.key==='Enter'&&go()})),
-        e&&h('div',{style:{color:'#991B1B',fontSize:12,background:'#FEE2E2',padding:'8px 11px',borderRadius:6}},e),
-        h('button',{className:'bp',onClick:go,style:{marginTop:4,padding:10,fontSize:14}},'כניסה')
-      )
-    )
-  );
-}
-
-/* ── CATALOG ── */
-function Catalog({products,setProducts,onCreatePR,canEdit,userCats,setUserCats}){
-  const[cat,setCat]=useState('הכל');
-  const[q,setQ]=useState('');
-  const[sel,setSel]=useState(new Set());
-  const[noSku,setNoSku]=useState(false);
-  const[newCatInput,setNewCatInput]=useState('');
-  const[showAddCat,setShowAddCat]=useState(false);
-  const allCats=[...PCATS,...(userCats||[])];
-
-  const persist=l=>{setProducts(l);S.s('ng_prod',l);};
-  const upd=(id,k,v)=>persist(products.map(p=>p.id===id?{...p,[k]:v}:p));
-  const addRow=()=>{const id=Math.max(...products.map(p=>p.id),0)+1;persist([...products,{id,sku:'',name:'',cat:'מדבקה - דבש',notes:''}]);};
-  const del=id=>{if(!confirm('למחוק?'))return;persist(products.filter(p=>p.id!==id));};
-  const toggle=id=>setSel(s=>{const n=new Set(s);n.has(id)?n.delete(id):n.add(id);return n;});
-  const toggleAll=()=>{const vis=filtered.map(p=>p.id);const all=vis.every(id=>sel.has(id));setSel(all?new Set():new Set(vis));};
-
-  const noSkuN=products.filter(p=>!p.sku).length;
-  const filtered=products.filter(p=>{
-    if(cat!=='הכל'&&p.cat!==cat)return false;
-    if(noSku&&p.sku)return false;
-    if(!q)return true;
-    return(p.sku+p.name).toLowerCase().includes(q.toLowerCase());
-  });
-
-  const selCount=filtered.filter(p=>sel.has(p.id)).length;
-
-  return h('div',null,
-    h('div',{className:'hdr'},
-      h('div',null,
-        h('div',{style:{fontSize:16,fontWeight:500}},'קטלוג מוצרים'),
-        h('div',{style:{fontSize:12,color:'var(--gr)',marginTop:2}},products.length+' מוצרים'+(noSkuN>0?'  ·  '+noSkuN+' ללא מק"ט':''))
-      ),
-      h('div',{style:{display:'flex',gap:8,alignItems:'center'}},
-        selCount>0&&h('button',{className:'bp',onClick:()=>{const ids=[...sel].filter(id=>filtered.some(p=>p.id===id));onCreatePR(products.filter(p=>ids.includes(p.id)));setSel(new Set());}},'צור בקשת רכש ('+selCount+')'),
-        noSkuN>0&&h('button',{className:'pill'+(noSku?' on':''),onClick:()=>setNoSku(v=>!v)},'ללא מק"ט ('+noSkuN+')'),
-        canEdit&&h('button',{className:'bs',style:{fontSize:12},onClick:()=>setShowAddCat(v=>!v)},'+ קטגוריה'),
-        canEdit&&h('button',{className:'bp',onClick:addRow},'+ מוצר חדש')
-      )
-    ),
-    h('div',{className:'ntabs'},['הכל',...allCats].map(c=>h('button',{key:c,className:'ntab'+(cat===c?' on':''),onClick:()=>setCat(c)},c+(c!=='הכל'?' ('+products.filter(p=>p.cat===c).length+')':'')))),
-    showAddCat&&h('div',{style:{padding:'8px 18px',background:'#F0F9FF',borderBottom:'1px solid var(--bd)',display:'flex',gap:8,alignItems:'center'}},
-      h('input',{value:newCatInput,onChange:e=>setNewCatInput(e.target.value),placeholder:'שם קטגוריה חדשה...',style:{maxWidth:220},onKeyDown:e=>{if(e.key==='Enter'&&newCatInput.trim()){const nc=[...(userCats||[]),newCatInput.trim()];setUserCats(nc);S.s('ng_ucats',nc);setNewCatInput('');setShowAddCat(false);}}}),
-      h('button',{className:'bp',style:{fontSize:12,padding:'6px 14px'},onClick:()=>{if(newCatInput.trim()){const nc=[...(userCats||[]),newCatInput.trim()];setUserCats(nc);S.s('ng_ucats',nc);setNewCatInput('');setShowAddCat(false);}}},'הוסף'),
-      h('button',{className:'bs',style:{fontSize:12},onClick:()=>setShowAddCat(false)},'ביטול')
-    ),
-    h('div',{style:{padding:'11px 18px'}},h('input',{placeholder:'חיפוש — שם, מק"ט...',value:q,onChange:e=>setQ(e.target.value),style:{maxWidth:280}})),
-    h('div',{style:{padding:'0 18px 24px',overflowX:'auto'}},
-      h('div',{className:'tw'},
-        h('table',{className:'ct',style:{tableLayout:'fixed'}},
-          h('colgroup',null,h('col',{style:{width:'3%'}}),h('col',{style:{width:'11%'}}),h('col',{style:{width:'35%'}}),h('col',{style:{width:'14%'}}),h('col',{style:{width:'14%'}}),canEdit&&h('col',{style:{width:'4%'}})),
-          h('thead',null,h('tr',null,
-            h('th',null,h('input',{type:'checkbox',checked:filtered.length>0&&filtered.every(p=>sel.has(p.id)),onChange:toggleAll})),
-            h('th',null,'מק"ט'),h('th',null,'שם מוצר'),h('th',null,'קטגוריה'),h('th',null,'הערות'),
-            canEdit&&h('th',null,'')
-          )),
-          h('tbody',null,filtered.length===0?h('tr',null,h('td',{colSpan:canEdit?6:5,style:{padding:28,textAlign:'center',color:'#9CA3AF'}},'לא נמצאו מוצרים')):
-            filtered.map((p,i)=>h('tr',{key:p.id,style:{background:sel.has(p.id)?'#EFF6FF':i%2===0?'#fff':'#FAFAFA'}},
-              h('td',{style:{textAlign:'center'}},h('input',{type:'checkbox',checked:sel.has(p.id),onChange:()=>toggle(p.id)})),
-              h('td',null,canEdit?h('input',{value:p.sku||'',onChange:e=>upd(p.id,'sku',e.target.value),style:{fontFamily:'monospace',fontSize:11,width:'100%'}}):h('span',{style:{fontFamily:'monospace',fontSize:11,color:p.sku?'#374151':'#D1D5DB'}},p.sku||'—')),
-              h('td',null,canEdit?h('input',{value:p.name||'',onChange:e=>upd(p.id,'name',e.target.value),style:{width:'100%'}}):h('span',{style:{fontWeight:500}},p.name)),
-              h('td',null,canEdit?h('select',{value:p.cat||'',onChange:e=>upd(p.id,'cat',e.target.value),style:{width:'100%',fontSize:11}},allCats.map(c=>h('option',{key:c,value:c},c))):h(CBdg,{c:p.cat})),
-              h('td',null,canEdit?h('input',{value:p.notes||'',onChange:e=>upd(p.id,'notes',e.target.value),style:{width:'100%',fontSize:12}}):h('span',{style:{fontSize:12,color:'var(--gr)'}},p.notes||'')),
-              canEdit&&h('td',{style:{textAlign:'center'}},h('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--gr)',fontSize:14},onClick:()=>del(p.id)},'🗑'))
-            ))
-          )
-        )
-      )
-    )
-  );
-}
-
-/* ── PURCHASE REQUESTS ── */
-function ItemRow({item,idx,onChange,onRemove,products,withPrice}){
-  const[open,setOpen]=useState(false);
-  const[sq,setSq]=useState('');
-  const u=(k,v)=>onChange(idx,k,v);
-  const ms=products.filter(p=>(p.name+p.sku).toLowerCase().includes(sq.toLowerCase())).slice(0,8);
-  const s1={fontFamily:'Arial',fontSize:12,border:'1px solid #D1D5DB',borderRadius:5,padding:'5px 7px',outline:'none',background:'#fff',color:'#1a1a1a'};
-  const t=(parseFloat(item.qty)||0)*(parseFloat(item.price||0)||0);
-  return h('tr',null,
-    h('td',{style:{padding:'3px 4px',width:withPrice?'28%':'36%',position:'relative'}},
-      h('input',{value:item.name||'',onChange:e=>{u('name',e.target.value);setSq(e.target.value);setOpen(true);},onFocus:()=>{setSq(item.name||'');setOpen(true);},onBlur:()=>setTimeout(()=>setOpen(false),200),placeholder:'הקלד או בחר...',style:{...s1,width:'100%'}}),
-      open&&ms.length>0&&h('div',{style:{position:'absolute',top:'100%',right:0,left:0,background:'#fff',border:'1px solid #D1D5DB',borderRadius:6,zIndex:100,maxHeight:150,overflowY:'auto',boxShadow:'0 4px 12px rgba(0,0,0,.15)'}},
-        ms.map(p=>h('div',{key:p.id,onMouseDown:()=>{u('name',p.name);u('sku',p.sku||'');u('pid',p.id);setOpen(false);},style:{padding:'5px 9px',cursor:'pointer',fontSize:12,borderBottom:'1px solid #F3F4F6'}},
-          h('div',{style:{fontWeight:500}},p.name),h('div',{style:{color:'var(--gr)',fontSize:11}},p.sku||'ללא מק"ט')
-        ))
-      )
-    ),
-    h('td',{style:{padding:'3px 4px',width:'9%'}},h('input',{value:item.sku||'',onChange:e=>u('sku',e.target.value),style:{...s1,width:'100%',fontFamily:'monospace',fontSize:11}})),
-    h('td',{style:{padding:'3px 4px',width:'7%'}},h('input',{value:item.qty||'',onChange:e=>u('qty',e.target.value),type:'number',min:0,style:{...s1,width:'100%'}})),
-    h('td',{style:{padding:'3px 4px',width:'8%'}},h('input',{value:item.unit||'',onChange:e=>u('unit',e.target.value),placeholder:"יח'",style:{...s1,width:'100%'}})),
-    withPrice&&h('td',{style:{padding:'3px 4px',width:'10%'}},h('input',{value:item.price||'',onChange:e=>u('price',e.target.value),type:'number',min:0,placeholder:'0.00',style:{...s1,width:'100%'}})),
-    withPrice&&h('td',{style:{padding:'3px 8px',width:'11%',fontWeight:500,color:'var(--B)',fontSize:12}},t>0?t.toLocaleString('he-IL')+'₪':'—'),
-    h('td',{style:{padding:'3px 4px',width:'5%',textAlign:'center'}},h('button',{onClick:()=>onRemove(idx),style:{background:'none',border:'none',color:'#9CA3AF',fontSize:15,cursor:'pointer'}},'×'))
-  );
-}
-
-function PRForm({req,supp,products,onSave,onSubmit,onBack,user}){
-  const[f,sf]=useState(()=>JSON.parse(JSON.stringify(req)));
-  const u=(k,v)=>sf(x=>({...x,[k]:v}));
-  const ui=(i,k,v)=>sf(x=>{const it=[...x.items];it[i]={...it[i],[k]:v};return{...x,items:it};});
-  const add=()=>sf(x=>({...x,items:[...x.items,{pid:0,sku:'',name:'',qty:'',unit:'',price:''}]}));
-  const rem=i=>sf(x=>({...x,items:x.items.filter((_,j)=>j!==i)}));
-  const isMgr=['מנהל','מנהלת רכש','מנכלית'].includes(user.role);
-  const t=tot(f.items);
-  const valid=f.supplierName&&f.items.some(i=>i.name);
-  return h('div',null,
-    h('div',{className:'hdr'},
-      h('div',{style:{display:'flex',alignItems:'center',gap:11}},
-        h('button',{className:'bs',style:{padding:'5px 11px',fontSize:12},onClick:()=>{onSave(f);onBack();}},'← חזרה'),
-        h('div',null,h('div',{style:{fontSize:15,fontWeight:500}},f.num||'בקשה חדשה'),h('div',{style:{marginTop:3}},h(SBdg,{s:f.status})))
-      ),
-      h('div',{style:{display:'flex',gap:8}},h('button',{className:'bs',onClick:()=>{onSave(f);onBack();}},'שמור'),h('button',{className:'bp',disabled:!valid,style:{opacity:valid?1:.45},onClick:()=>onSubmit(f)},'שלח לאישור ↑'))
-    ),
-    h('div',{style:{padding:'13px 18px 0',display:'grid',gridTemplateColumns:'1fr 1fr',gap:11}},
-      h('div',{className:'fg'},h('label',null,'מבקש'),h('input',{value:f.reqBy||'',disabled:true})),
-      h(F,{label:'נושא',val:f.subject,set:v=>u('subject',v),ph:'תיאור קצר'}),
-      h('div',{className:'fg'},h('label',null,'ספק *'),
-        h('select',{value:f.supplierName||'',onChange:e=>{const s=supp.find(x=>x.name===e.target.value);sf(x=>({...x,supplierName:e.target.value,suppPay:s?s.pay:''}));}},
-          h('option',{value:''},'— בחר ספק —'),supp.map((s,i)=>h('option',{key:i,value:s.name},s.name+(s.city?' · '+s.city:'')))
-        )
-      ),
-      h(F,{label:'דחיפות',val:f.urgency,set:v=>u('urgency',v),type:'sel',opts:['רגיל','דחוף','מיידי']}),
-      h('div',{className:'fg'},h('label',null,'תאריך אספקה'),h('input',{type:'date',value:f.delivDate||'',onChange:e=>u('delivDate',e.target.value)})),
-      h(F,{label:'אספקה',val:f.delivMethod,set:v=>u('delivMethod',v),type:'sel',opts:['כולל משלוח','איסוף עצמי']}),
-      f.delivMethod==='כולל משלוח'&&h(F,{label:'כתובת למשלוח',val:f.delivAddr,set:v=>u('delivAddr',v),full:true})
-    ),
-    isMgr&&h('div',{style:{padding:'10px 18px 0'}},
-      h('hr',{className:'div'}),
-      h('div',{className:'sl',style:{marginTop:0}},'פרטי הצעת מחיר'),
-      h('div',{className:'g3'},
-        h(F,{label:'מס׳ הצעת מחיר',val:f.quoteRef,set:v=>u('quoteRef',v)}),
-        h('div',{className:'fg'},h('label',null,'תאריך הצעה'),h('input',{type:'date',value:f.quoteDate||'',onChange:e=>u('quoteDate',e.target.value)})),
-        h('div',{className:'fg'},h('label',null,'תנאי תשלום'),h('div',{style:{padding:'7px 10px',border:'1px solid #D1D5DB',borderRadius:6,background:'#F9FAFB',fontSize:13,color:f.suppPay?'var(--B)':'#9CA3AF'}},f.suppPay||'יועתק מהספק'))
-      )
-    ),
-    h('div',{style:{padding:'13px 18px 0'}},
-      h('div',{className:'sl',style:{marginTop:0}},'פריטים'),
-      h('div',{style:{border:'1px solid var(--bd)',borderRadius:8,overflow:'hidden',background:'#fff'}},
-        h('table',{style:{tableLayout:'fixed',width:'100%'}},
-          h('thead',null,h('tr',null,
-            ['תיאור מוצר','מק"ט','כמות','יחידה',isMgr?'מחיר יח\'':null,isMgr?'סה"כ':null,''].filter(v=>v!==null).map((hd,i)=>h('th',{key:i,style:{padding:'7px 9px',textAlign:'right',fontWeight:500,fontSize:12,color:'var(--gr)',background:'var(--bg)',borderBottom:'1px solid var(--bd)'}},hd))
-          )),
-          h('tbody',null,
-            f.items.map((item,i)=>h(ItemRow,{key:i,item,idx:i,onChange:ui,onRemove:rem,products,withPrice:isMgr})),
-            h('tr',null,h('td',{colSpan:isMgr?7:5,style:{padding:'5px 8px'}},h('button',{onClick:add,style:{background:'none',border:'1px dashed #D1D5DB',borderRadius:6,padding:'3px 11px',fontSize:12,cursor:'pointer',color:'var(--gr)',fontFamily:'Arial'}},'+ פריט')))
-          )
-        )
-      ),
-      isMgr&&t>0&&h('div',{style:{textAlign:'left',marginTop:8,fontSize:13,fontWeight:500}},'סה"כ: ',h('span',{style:{color:'var(--B)',fontSize:14}},t.toLocaleString('he-IL')+'₪'))
-    ),
-    h('div',{style:{padding:'11px 18px 22px'}},h(F,{label:'הערות',val:f.notes,set:v=>u('notes',v),type:'ta',ph:'בקשות מיוחדות, הוראות...'}))
-  );
+  var s=suppList.find(function(x){return x.name===req.supplierName;})||{};
+  var rows=req.items.filter(function(i){return i.name;}).map(function(it,idx){
+    return "<tr><td style='text-align:center;padding:7px 8px'>"+(idx+1)+"</td>"
+      +"<td style='padding:7px 8px'>"+it.name+"</td>"
+      +"<td style='font-family:monospace;font-size:11px;padding:7px 8px'>"+(it.sku||"--")+"</td>"
+      +"<td style='text-align:center;padding:7px 8px'>"+(it.qty||"--")+"</td>"
+      +"<td style='text-align:center;padding:7px 8px'>"+(it.unit||"--")+"</td>"
+      +"<td style='padding:7px 8px'></td></tr>";
+  }).join("");
+  var LOGO="data:image/png;base64,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";
+  var suppBox="<div class='box'><h3>לכבוד: פרטי הספק</h3>"
+    +"<p><strong>"+(s.name||req.supplierName||"--")+"</strong></p>"
+    +(s.hp?"<p>ח.פ: "+s.hp+"</p>":"")
+    +(s.city?"<p>"+s.city+"</p>":"")
+    +(s.phone?"<p>טלפון: "+s.phone+"</p>":"")
+    +(s.email?"<p>מייל: "+s.email+"</p>":"")
+    +"</div>";
+  var coBox="<div class='box'><h3>מאת: פרטי המזמין</h3>"
+    +"<p><strong>דבש נגוהות / Negohoney</strong></p>"
+    +"<p>ח.פ: 516484490</p>"
+    +"<p>נגוהות ד.נ לכיש 7939000</p>"
+    +"<p>טלפון: 079-6079078</p>"
+    +"<p>מייל: negohoney1@gmail.com</p>"
+    +"</div>";
+  var css="body{font-family:Arial,sans-serif;direction:rtl;padding:28px;font-size:13px;color:#1a1a1a}"
+    +"h1{color:#1B6EC2;text-align:center;font-size:22px;margin-bottom:4px}"
+    +".sub{text-align:center;color:#6B7280;font-size:12px;margin-bottom:14px}"
+    +".logo{text-align:center;margin-bottom:10px}"
+    +".boxes{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}"
+    +".box{background:#F9FAFB;border:1px solid #E5E7EB;padding:12px;border-radius:6px}"
+    +".box h3{font-size:12px;color:#1B6EC2;margin-bottom:6px}"
+    +".box p{font-size:12px;margin:2px 0;color:#444}"
+    +".inforow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:10px 0}"
+    +".ic{background:#F9FAFB;border:1px solid #E5E7EB;padding:8px;border-radius:6px}"
+    +".ic small{font-size:10px;color:#9CA3AF;display:block}"
+    +"table{width:100%;border-collapse:collapse;margin-top:14px}"
+    +"th{background:#EFF6FF;color:#1E40AF;padding:8px;text-align:right;font-size:12px;border:1px solid #DBEAFE}"
+    +"td{border:1px solid #E5E7EB}"
+    +".notes{margin-top:14px;background:#FFFBF0;border-right:3px solid #1B6EC2;padding:8px 12px;font-size:12px}"
+    +"@media print{body{padding:20px}}";
+  var html="<!DOCTYPE html><html dir='rtl' lang='he'><head><meta charset='UTF-8'>"
+    +"<title>בקשה להצעת מחיר</title>"
+    +"<style>"+css+"</style></head><body>"
+    +"<div class='logo'><img src='"+LOGO+"' style='height:55px;max-width:200px' alt='Negohoney'/></div>"
+    +"<h1>בקשה להצעת מחיר</h1>"
+    +"<div class='sub'>דבש נגוהות | נגוהות ד.נ לכיש 7939000 | 079-6079078 | negohoney1@gmail.com</div>"
+    +"<div class='boxes'>"+suppBox+coBox+"</div>"
+    +"<div class='inforow'>"
+    +"<div class='ic'><small>תאריך</small><strong>"+fmtD(req.date)+"</strong></div>"
+    +"<div class='ic'><small>נושא</small><strong>"+(req.subject||"--")+"</strong></div>"
+    +"<div class='ic'><small>תאריך אספקה מבוקש</small><strong>"+fmtD(req.delivDate)+"</strong></div>"
+    +"</div>"
+    +"<table><thead><tr>"
+    +"<th style='width:4%'>מס'</th>"
+    +"<th>תיאור מוצר</th>"
+    +"<th style='width:10%'>מק&quot;ט</th>"
+    +"<th style='width:8%'>כמות</th>"
+    +"<th style='width:8%'>יחידה</th>"
+    +"<th style='width:16%'>מחיר יחידה</th>"
+    +"</tr></thead><tbody>"+rows+"</tbody></table>"
+    +(req.notes?"<div class='notes'>"+req.notes+"</div>":"")
+    +"</body></html>";
+  var w=window.open("","_blank","width=900,height=700");
+  if(w){w.document.write(html);w.document.close();setTimeout(function(){w.print();},600);}
+  else{alert("אפשר פופ-אפ בדפדפן ונסי שוב");}
 }
 
 function ApprovalModal({req,onApprove,onReject,onClose,code}){
