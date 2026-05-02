@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<!-- saved from url=(0044)file:///C:/Users/User/Downloads/index_2.html -->
-<html dir="rtl" lang="he"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<html dir="rtl" lang="he">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Negohoney — מערכת רכש</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -45,9 +45,10 @@ input[type=checkbox]{width:auto;cursor:pointer;transform:scale(1.15)}
 </style>
 </head>
 <body>
-<div id="root"><div style="min-height: 100vh; font-family: Arial, sans-serif;"><div style="background: var(--nv); color: rgb(255, 255, 255); padding: 8px 18px; display: flex; align-items: center; justify-content: space-between;"><div style="font-weight: 500; font-size: 15px;">🍯 Negohoney — מערכת רכש</div><div style="display: flex; align-items: center; gap: 11px;"><div style="font-size: 12px;"><span style="color: rgb(147, 197, 253);">אלון אליה</span> · <span class="bdg" style="background: rgb(254, 243, 199); color: rgb(146, 64, 14); font-size: 11px;">מנכ"לית</span></div><button style="background: rgba(255, 255, 255, 0.12); border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; color: rgb(255, 255, 255); border-radius: 6px; padding: 3px 9px; font-size: 12px; cursor: pointer;">יציאה</button></div></div><div class="ntabs"><button class="ntab on">📋 בקשות</button><button class="ntab">📦 קטלוג</button><button class="ntab">🏢 ספקים</button><button class="ntab">📊 דוחות</button><button class="ntab">⚙ הגדרות</button></div><div><div><div class="hdr"><div><div style="font-size: 16px; font-weight: 500;">בקשות רכש</div><div style="font-size: 12px; color: var(--gr); margin-top: 2px;">0 בקשות</div></div><div style="display: flex; gap: 8px; align-items: center;"><button class="bp">+ בקשה חדשה</button></div></div><div style="padding: 9px 18px; display: flex; gap: 5px; flex-wrap: wrap;"><button class="pill on">הכל (0)</button></div><div style="padding: 0px 18px 11px;"><input placeholder="חיפוש..." value="" style="max-width: 280px;"></div><div style="padding: 0px 18px 24px; overflow-x: auto;"><div style="background: rgb(255, 255, 255); border-radius: 10px; border: 1px solid var(--bd); padding: 44px; text-align: center; color: rgb(156, 163, 175);"><div><div style="font-size: 34px; margin-bottom: 10px;">📋</div><div style="font-weight: 500; margin-bottom: 7px; color: rgb(55, 65, 81);">עדיין אין בקשות</div><button class="bp" style="margin-top: 8px;">+ בקשה חדשה</button></div></div></div></div></div></div></div>
+<div id="root"></div>
 <script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js" crossorigin></script><script>
+<script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js" crossorigin></script>
+<script>
 (function(){
 const API_URL='https://script.google.com/macros/s/AKfycbyXsG5BT8E6ShW8QPHLO6iJCTH4-9cd1fxTG9E0jZLxNO_rIUZ1H07j7JVw6VcA6gMR/exec';
 
@@ -390,11 +391,14 @@ function Login({users,onLogin}){
 }
 
 /* ── CATALOG ── */
-function Catalog({products,setProducts,onCreatePR,canEdit}){
+function Catalog({products,setProducts,onCreatePR,canEdit,userCats,setUserCats}){
   const[cat,setCat]=useState('הכל');
   const[q,setQ]=useState('');
   const[sel,setSel]=useState(new Set());
   const[noSku,setNoSku]=useState(false);
+  const[newCatInput,setNewCatInput]=useState('');
+  const[showAddCat,setShowAddCat]=useState(false);
+  const allCats=[...PCATS,...(userCats||[])];
 
   const persist=l=>{setProducts(l);S.s('ng_prod',l);};
   const upd=(id,k,v)=>persist(products.map(p=>p.id===id?{...p,[k]:v}:p));
@@ -422,10 +426,16 @@ function Catalog({products,setProducts,onCreatePR,canEdit}){
       h('div',{style:{display:'flex',gap:8,alignItems:'center'}},
         selCount>0&&h('button',{className:'bp',onClick:()=>{const ids=[...sel].filter(id=>filtered.some(p=>p.id===id));onCreatePR(products.filter(p=>ids.includes(p.id)));setSel(new Set());}},'צור בקשת רכש ('+selCount+')'),
         noSkuN>0&&h('button',{className:'pill'+(noSku?' on':''),onClick:()=>setNoSku(v=>!v)},'ללא מק"ט ('+noSkuN+')'),
+        canEdit&&h('button',{className:'bs',style:{fontSize:12},onClick:()=>setShowAddCat(v=>!v)},'+ קטגוריה'),
         canEdit&&h('button',{className:'bp',onClick:addRow},'+ מוצר חדש')
       )
     ),
-    h('div',{className:'ntabs'},['הכל',...PCATS].map(c=>h('button',{key:c,className:'ntab'+(cat===c?' on':''),onClick:()=>setCat(c)},c+(c!=='הכל'?' ('+products.filter(p=>p.cat===c).length+')':'')))),
+    h('div',{className:'ntabs'},['הכל',...allCats].map(c=>h('button',{key:c,className:'ntab'+(cat===c?' on':''),onClick:()=>setCat(c)},c+(c!=='הכל'?' ('+products.filter(p=>p.cat===c).length+')':'')))),
+    showAddCat&&h('div',{style:{padding:'8px 18px',background:'#F0F9FF',borderBottom:'1px solid var(--bd)',display:'flex',gap:8,alignItems:'center'}},
+      h('input',{value:newCatInput,onChange:e=>setNewCatInput(e.target.value),placeholder:'שם קטגוריה חדשה...',style:{maxWidth:220},onKeyDown:e=>{if(e.key==='Enter'&&newCatInput.trim()){const nc=[...(userCats||[]),newCatInput.trim()];setUserCats(nc);S.s('ng_ucats',nc);setNewCatInput('');setShowAddCat(false);}}}),
+      h('button',{className:'bp',style:{fontSize:12,padding:'6px 14px'},onClick:()=>{if(newCatInput.trim()){const nc=[...(userCats||[]),newCatInput.trim()];setUserCats(nc);S.s('ng_ucats',nc);setNewCatInput('');setShowAddCat(false);}}},'הוסף'),
+      h('button',{className:'bs',style:{fontSize:12},onClick:()=>setShowAddCat(false)},'ביטול')
+    ),
     h('div',{style:{padding:'11px 18px'}},h('input',{placeholder:'חיפוש — שם, מק"ט...',value:q,onChange:e=>setQ(e.target.value),style:{maxWidth:280}})),
     h('div',{style:{padding:'0 18px 24px',overflowX:'auto'}},
       h('div',{className:'tw'},
@@ -441,7 +451,7 @@ function Catalog({products,setProducts,onCreatePR,canEdit}){
               h('td',{style:{textAlign:'center'}},h('input',{type:'checkbox',checked:sel.has(p.id),onChange:()=>toggle(p.id)})),
               h('td',null,canEdit?h('input',{value:p.sku||'',onChange:e=>upd(p.id,'sku',e.target.value),style:{fontFamily:'monospace',fontSize:11,width:'100%'}}):h('span',{style:{fontFamily:'monospace',fontSize:11,color:p.sku?'#374151':'#D1D5DB'}},p.sku||'—')),
               h('td',null,canEdit?h('input',{value:p.name||'',onChange:e=>upd(p.id,'name',e.target.value),style:{width:'100%'}}):h('span',{style:{fontWeight:500}},p.name)),
-              h('td',null,canEdit?h('select',{value:p.cat||'',onChange:e=>upd(p.id,'cat',e.target.value),style:{width:'100%',fontSize:11}},PCATS.map(c=>h('option',{key:c,value:c},c))):h(CBdg,{c:p.cat})),
+              h('td',null,canEdit?h('select',{value:p.cat||'',onChange:e=>upd(p.id,'cat',e.target.value),style:{width:'100%',fontSize:11}},allCats.map(c=>h('option',{key:c,value:c},c))):h(CBdg,{c:p.cat})),
               h('td',null,canEdit?h('input',{value:p.notes||'',onChange:e=>upd(p.id,'notes',e.target.value),style:{width:'100%',fontSize:12}}):h('span',{style:{fontSize:12,color:'var(--gr)'}},p.notes||'')),
               canEdit&&h('td',{style:{textAlign:'center'}},h('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--gr)',fontSize:14},onClick:()=>del(p.id)},'🗑'))
             ))
@@ -570,7 +580,7 @@ function PRDetail({req,user,onBack,onEdit,onApprovalOpen,onIssued,supp}){
   const t=tot(req.items);
   const canEdit=['מנהל','מנהלת רכש','מנכלית'].includes(user.role)&&req.status!=='הופקה הזמנה';
   const canApprove=user.role==='מנכלית'&&req.status==='ממתינה לאישור';
-  const canQuote=['מנהל','מנהלת רכש','מנכלית'].includes(user.role)&&['בקשת עובד','ממתינה להצעה'].includes(req.status);
+  const canQuote=['מנהל','מנהלת רכש','מנכלית'].includes(user.role)&&['בקשת עובד','ממתינה להצעה','הצעת מחיר התקבלה','ממתינה לאישור'].includes(req.status);
   const canIssue=['מנהלת רכש','מנכלית'].includes(user.role)&&req.status==='מאושרת';
   return h('div',null,
     h('div',{className:'hdr'},
@@ -949,6 +959,7 @@ function App(){
   const[settings,setSettings]=useState(()=>S.g('ng_set',DS));
   const[tab,setTab]=useState('requests');
   const[prItems,setPrItems]=useState(null);
+  const[userCats,setUserCats]=useState(()=>S.g('ng_ucats',[]));
   const[syncing,setSyncing]=useState(false);
   const[syncMsg,setSyncMsg]=useState('');
   const[connected,setConnected]=useState(null); // null=checking, true, false
@@ -998,7 +1009,7 @@ function App(){
       ['settings','⚙ הגדרות',isMgr],
     ].filter(t=>t[2]).map(([k,l])=>h('button',{key:k,className:'ntab'+(tab===k?' on':''),onClick:()=>setTab(k)},l))),
     tab==='requests'&&h(PRModule,{supp,products:prod,user:me,code:settings.code,initItems:prItems,clearInit:()=>setPrItems(null),connected}),
-    tab==='catalog'&&h(Catalog,{products:prod,setProducts:setProd,onCreatePR,canEdit:isMgr}),
+    tab==='catalog'&&h(Catalog,{products:prod,setProducts:setProd,onCreatePR,canEdit:isMgr,userCats,setUserCats}),
     tab==='suppliers'&&h(SuppModule,{supp,setSupp,canEdit:isMgr}),
     tab==='reports'&&h(ReportsModule,{supp}),
     tab==='settings'&&h(SettingsModule,{users,setUsers,settings,setSettings,user:me})
@@ -1007,6 +1018,5 @@ function App(){
 ReactDOM.render(h(App),document.getElementById('root'));
 })();
 </script>
-
-
-</body></html>
+</body>
+</html>
