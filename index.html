@@ -725,13 +725,9 @@ function PRList({reqs,onNew,onView,onDelete,user}){
   );
 }
 
-function PRModule({supp,products,user,code,settings,initItems,clearInit,connected}){
-  const[reqs,setReqs]=useState(()=>{
-    // try to load from sheets cache first
-    const fromSheets=S.g('ng_pr_sheets',null);
-    return fromSheets||S.g('ng_pr',[]);
-  });
-  // also load fresh from sheets if connected
+function PRModule({supp,products,user,code,settings,pendingId,onPendingDone,connected}){
+  const[reqs,setReqs]=useState(()=>S.g('ng_pr',[]));
+  // load fresh from sheets if connected
   useEffect(()=>{
     if(!connected)return;
     (async()=>{
@@ -742,6 +738,17 @@ function PRModule({supp,products,user,code,settings,initItems,clearInit,connecte
   const[view,setView]=useState('list');
   const[cid,setCid]=useState(null);
   const[appFor,setAppFor]=useState(null);
+
+  // Navigate to newly created PR from catalog
+  useEffect(()=>{
+    if(pendingId){
+      const fresh=S.g('ng_pr',[]);
+      setReqs(fresh);
+      setCid(pendingId);
+      setView('form');
+      onPendingDone();
+    }
+  },[pendingId]);
   const persist=l=>{setReqs(l);S.s('ng_pr',l);};
   const persistPR=async(l,changed,deleted)=>{
     persist(l);
@@ -751,16 +758,7 @@ function PRModule({supp,products,user,code,settings,initItems,clearInit,connecte
     }
   };
 
-  useEffect(()=>{
-    if(initItems&&initItems.id){
-      // req already created in App - just reload and navigate
-      const fresh=S.g('ng_pr',[]);
-      setReqs(fresh);
-      setCid(initItems.id);
-      setView('form');
-      clearInit();
-    }
-  },[initItems]);
+
 
   const newReq=()=>{
     const id=Math.max(0,...reqs.map(x=>x.id))+1;
@@ -1097,7 +1095,7 @@ function App(){
       ['reports','📊 דוחות',isMgr],
       ['settings','⚙ הגדרות',isMgr],
     ].filter(t=>t[2]).map(([k,l])=>h('button',{key:k,className:'ntab'+(tab===k?' on':''),onClick:()=>setTab(k)},l))),
-    tab==='requests'&&h(PRModule,{supp,products:prod,user:me,code:settings.code,settings,initItems:prItems,clearInit:()=>setPrItems(null),connected}),
+    tab==='requests'&&h(PRModule,{supp,products:prod,user:me,code:settings.code,settings,pendingId:prItems?prItems.id:null,onPendingDone:()=>setPrItems(null),connected}),
     tab==='catalog'&&h(Catalog,{products:prod,setProducts:setProd,onCreatePR,canEdit:isMgr,userCats,setUserCats}),
     tab==='suppliers'&&h(SuppModule,{supp,setSupp,canEdit:isMgr}),
     tab==='reports'&&h(ReportsModule,{supp}),
