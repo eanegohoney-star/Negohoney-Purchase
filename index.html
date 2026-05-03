@@ -758,8 +758,10 @@ function PRModule({supp,products,user,code,settings,initItems,clearInit,connecte
         items:initItems.map(p=>({pid:p.id,sku:p.sku||'',name:p.name,qty:'',unit:"יח'",price:''})),
         urgency:'רגיל',delivDate:'',delivMethod:'כולל משלוח',delivAddr:'נגוהות ד.נ לכיש 7939000',
         notes:'',quoteRef:'',quoteDate:'',status:'בקשת עובד',approvalNote:'',approvedBy:'',approvedDate:''};
-      persist([...reqs,r]);setCid(id);setView('form');
-      clearInit();
+      const newReqs=[...reqs,r];
+      setReqs(newReqs);S.s('ng_pr',newReqs);
+      setCid(id);setView('form');
+      setTimeout(()=>clearInit(),100);
     }
   },[initItems]);
 
@@ -816,7 +818,11 @@ function SuppModal({s,isNew,onSave,onClose}){
         h(F,{label:'פירוט',val:f.payNote,set:v=>u('payNote',v)})
       ),
       h('div',{style:{display:'flex',gap:10,marginTop:14}},
-        h('button',{className:'bp',onClick:()=>onSave(f),disabled:!f.name,style:{opacity:f.name?1:.45}},(isNew?'הוסף':'שמור')),
+        (()=>{const[saving,setSaving]=useState(false);return h('button',{className:'bp',
+    disabled:!f.name||saving,
+    style:{opacity:(f.name&&!saving)?1:.45},
+    onClick:async()=>{if(saving)return;setSaving(true);await onSave(f);}},
+    saving?'שומר...':(isNew?'הוסף':'שמור'));})(),
         h('button',{className:'bs',onClick:onClose},'ביטול')
       )
     )
@@ -829,7 +835,14 @@ function SuppModule({supp,setSupp,canEdit}){
   const persist=l=>{setSupp(l);S.s('ng_supp',l);};
   const persistSupp=async(l,changed)=>{persist(l);if(connected&&changed)await gsSave('ספקים',changed);};
   const onSave=async s=>{const l=supp.map(x=>x.id===s.id?s:x);await persistSupp(l,s);setModal(null);};
-  const onAdd=async s=>{const id=Math.max(...supp.map(x=>x.id),0)+1;const ns={...s,id};const l=[...supp,ns];await persistSupp(l,ns);setAdding(false);};
+  const onAdd=async s=>{
+    if(!s.name.trim())return;
+    setAdding(false); // close modal first to prevent double-click
+    const id=Math.max(...supp.map(x=>x.id),0)+1;
+    const ns={...s,id};
+    const l=[...supp,ns];
+    await persistSupp(l,ns);
+  };
   const fil=supp.filter(s=>!q||(s.name+s.city+s.activity).toLowerCase().includes(q.toLowerCase()));
   if(modal)return h(SuppModal,{s:modal,isNew:false,onSave,onClose:()=>setModal(null)});
   if(adding)return h(SuppModal,{s:E,isNew:true,onSave:onAdd,onClose:()=>setAdding(false)});
@@ -966,7 +979,7 @@ function SettingsModule({users,setUsers,settings,setSettings,user}){
     sm('הקוד עודכן בהצלחה ✓');sc('');sn('');scf('');
   }
   function updU(id,k,v){const u=users.map(x=>x.id===id?{...x,[k]:v}:x);setUsers(u);S.s('ng_users',u);}
-  function addU(){const id=Math.max(...users.map(u=>u.id),0)+1;const u=[...users,{id,last:'',first:'',role:'עובד'}];setUsers(u);S.s('ng_users',u);se(id);}
+  function addU(){const id=Math.max(...users.map(u=>u.id),0)+1;const nu={id,last:'',first:'',role:'עובד'};if(users.find(u=>u.id===id))return;const u=[...users,nu];setUsers(u);S.s('ng_users',u);se(id);}
   function delU(id){if(users.find(u=>u.id===id)?.role==='מנכלית'){alert('לא ניתן למחוק מנכ"לית');return;}const u=users.filter(x=>x.id!==id);setUsers(u);S.s('ng_users',u);}
   return h('div',null,
     h('div',{className:'hdr'},h('div',{style:{fontSize:16,fontWeight:500}},'הגדרות')),
