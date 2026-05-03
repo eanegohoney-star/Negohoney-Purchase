@@ -356,8 +356,9 @@ function printPO(req,suppList,cfg){
   else alert('אפשרי הפעלה חסמה את החלון — אפשרי פופ-אפ בדפדפן ונסי שוב');
 }
 
+
 function printQuoteReq(req,suppList,cfg){
-  var cfg2=cfg||{};var coN=cfg2.coName||'דבש נגוהות / Negohoney';var coH=cfg2.coHp||'516484490';var coA=cfg2.coAddr||'נגוהות ד.נ לכיש 7939000';var coP=cfg2.coPhone||'079-6079078';var coE=cfg2.coEmail||'negohoney1@gmail.com';
+  var cfg2=cfg||{};var coN=cfg2.coName||"דבש נגוהות / Negohoney";var coH=cfg2.coHp||"516484490";var coA=cfg2.coAddr||"נגוהות ד.נ לכיש 7939000";var coP=cfg2.coPhone||"079-6079078";var coE=cfg2.coEmail||"negohoney1@gmail.com";
   var s=suppList.find(function(x){return x.name===req.supplierName;})||{};
   var rows=req.items.filter(function(i){return i.name;}).map(function(it,idx){
     return "<tr><td style='text-align:center;padding:7px 8px'>"+(idx+1)+"</td>"
@@ -376,11 +377,11 @@ function printQuoteReq(req,suppList,cfg){
     +(s.email?"<p>מייל: "+s.email+"</p>":"")
     +"</div>";
   var coBox="<div class='box'><h3>מאת: פרטי המזמין</h3>"
-    +"<p><strong>דבש נגוהות / Negohoney</strong></p>"
-    +"<p>ח.פ: 516484490</p>"
-    +"<p>נגוהות ד.נ לכיש 7939000</p>"
-    +"<p>טלפון: 079-6079078</p>"
-    +"<p>מייל: negohoney1@gmail.com</p>"
+    +"<p><strong>"+coN+"</strong></p>"
+    +"<p>ח.פ: "+coH+"</p>"
+    +"<p>"+coA+"</p>"
+    +"<p>טלפון: "+coP+"</p>"
+    +"<p>מייל: "+coE+"</p>"
     +"</div>";
   var css="body{font-family:Arial,sans-serif;direction:rtl;padding:28px;font-size:13px;color:#1a1a1a}"
     +"h1{color:#1B6EC2;text-align:center;font-size:22px;margin-bottom:4px}"
@@ -403,7 +404,7 @@ function printQuoteReq(req,suppList,cfg){
     +"<style>"+css+"</style></head><body>"
     +"<div class='logo'><img src='"+LOGO+"' style='height:55px;max-width:200px' alt='Negohoney'/></div>"
     +"<h1>בקשה להצעת מחיר</h1>"
-    +"<div class='sub'>דבש נגוהות | נגוהות ד.נ לכיש 7939000 | 079-6079078 | negohoney1@gmail.com</div>"
+    +"<div class='sub'>"+coN+" | "+coA+" | "+coP+" | "+coE+"</div>"
     +"<div class='boxes'>"+suppBox+coBox+"</div>"
     +"<div class='inforow'>"
     +"<div class='ic'><small>תאריך</small><strong>"+fmtD(req.date)+"</strong></div>"
@@ -423,6 +424,182 @@ function printQuoteReq(req,suppList,cfg){
   var w=window.open("","_blank","width=900,height=700");
   if(w){w.document.write(html);w.document.close();setTimeout(function(){w.print();},600);}
   else{alert("אפשר פופ-אפ בדפדפן ונסי שוב");}
+}
+/* ── LOGIN ── */
+function Login({users,onLogin}){
+  const[l,sl]=useState('');const[f,sf]=useState('');const[e,se]=useState('');
+  const go=()=>{const u=users.find(u=>u.last.trim()===l.trim()&&u.first.trim()===f.trim());u?(se(''),onLogin(u)):se('שם לא נמצא. בדקי שוב.');};
+  return h('div',{style:{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(135deg,#1B3A5C,#2563EB)'}},
+    h('div',{style:{background:'#fff',borderRadius:16,padding:'40px 36px',width:360,boxShadow:'0 20px 60px rgba(0,0,0,.25)',direction:'rtl'}},
+      h('div',{style:{textAlign:'center',marginBottom:26}},
+        h('div',{style:{fontSize:38,marginBottom:8}},'🍯'),
+        h('div',{style:{fontSize:22,fontWeight:500,color:'#1B3A5C'}},'Negohoney'),
+        h('div',{style:{fontSize:13,color:'#6B7280',marginTop:3}},'מערכת ניהול רכש')
+      ),
+      h('div',{style:{display:'flex',flexDirection:'column',gap:11}},
+        h('div',{className:'fg'},h('label',null,'שם משפחה'),h('input',{value:l,onChange:e=>sl(e.target.value),placeholder:'לדוגמה: כהן',onKeyDown:e=>e.key==='Enter'&&go()})),
+        h('div',{className:'fg'},h('label',null,'שם פרטי'),h('input',{value:f,onChange:e=>sf(e.target.value),placeholder:'לדוגמה: דינה',onKeyDown:e=>e.key==='Enter'&&go()})),
+        e&&h('div',{style:{color:'#991B1B',fontSize:12,background:'#FEE2E2',padding:'8px 11px',borderRadius:6}},e),
+        h('button',{className:'bp',onClick:go,style:{marginTop:4,padding:10,fontSize:14}},'כניסה')
+      )
+    )
+  );
+}
+
+/* ── CATALOG ── */
+function Catalog({products,setProducts,onCreatePR,canEdit,userCats,setUserCats}){
+  const[cat,setCat]=useState('הכל');
+  const[q,setQ]=useState('');
+  const[sel,setSel]=useState(new Set());
+  const[noSku,setNoSku]=useState(false);
+  const[newCatInput,setNewCatInput]=useState('');
+  const[showAddCat,setShowAddCat]=useState(false);
+  const allCats=[...PCATS,...(userCats||[])];
+
+  const persist=l=>{setProducts(l);S.s('ng_prod',l);};
+  const upd=(id,k,v)=>persist(products.map(p=>p.id===id?{...p,[k]:v}:p));
+  const addRow=()=>{const id=Math.max(...products.map(p=>p.id),0)+1;persist([...products,{id,sku:'',name:'',cat:'מדבקה - דבש',notes:''}]);};
+  const del=id=>{if(!confirm('למחוק?'))return;persist(products.filter(p=>p.id!==id));};
+  const toggle=id=>setSel(s=>{const n=new Set(s);n.has(id)?n.delete(id):n.add(id);return n;});
+  const toggleAll=()=>{const vis=filtered.map(p=>p.id);const all=vis.every(id=>sel.has(id));setSel(all?new Set():new Set(vis));};
+
+  const noSkuN=products.filter(p=>!p.sku).length;
+  const filtered=products.filter(p=>{
+    if(cat!=='הכל'&&p.cat!==cat)return false;
+    if(noSku&&p.sku)return false;
+    if(!q)return true;
+    return(p.sku+p.name).toLowerCase().includes(q.toLowerCase());
+  });
+
+  const selCount=filtered.filter(p=>sel.has(p.id)).length;
+
+  return h('div',null,
+    h('div',{className:'hdr'},
+      h('div',null,
+        h('div',{style:{fontSize:16,fontWeight:500}},'קטלוג מוצרים'),
+        h('div',{style:{fontSize:12,color:'var(--gr)',marginTop:2}},products.length+' מוצרים'+(noSkuN>0?'  ·  '+noSkuN+' ללא מק"ט':''))
+      ),
+      h('div',{style:{display:'flex',gap:8,alignItems:'center'}},
+        selCount>0&&h('button',{className:'bp',onClick:()=>{const ids=[...sel].filter(id=>filtered.some(p=>p.id===id));onCreatePR(products.filter(p=>ids.includes(p.id)));setSel(new Set());}},'צור בקשת רכש ('+selCount+')'),
+        noSkuN>0&&h('button',{className:'pill'+(noSku?' on':''),onClick:()=>setNoSku(v=>!v)},'ללא מק"ט ('+noSkuN+')'),
+        canEdit&&h('button',{className:'bs',style:{fontSize:12},onClick:()=>setShowAddCat(v=>!v)},'+ קטגוריה'),
+        canEdit&&h('button',{className:'bp',onClick:addRow},'+ מוצר חדש')
+      )
+    ),
+    h('div',{className:'ntabs'},['הכל',...allCats].map(c=>h('button',{key:c,className:'ntab'+(cat===c?' on':''),onClick:()=>setCat(c)},c+(c!=='הכל'?' ('+products.filter(p=>p.cat===c).length+')':'')))),
+    showAddCat&&h('div',{style:{padding:'8px 18px',background:'#F0F9FF',borderBottom:'1px solid var(--bd)',display:'flex',gap:8,alignItems:'center'}},
+      h('input',{value:newCatInput,onChange:e=>setNewCatInput(e.target.value),placeholder:'שם קטגוריה חדשה...',style:{maxWidth:220},onKeyDown:e=>{if(e.key==='Enter'&&newCatInput.trim()){const nc=[...(userCats||[]),newCatInput.trim()];setUserCats(nc);S.s('ng_ucats',nc);setNewCatInput('');setShowAddCat(false);}}}),
+      h('button',{className:'bp',style:{fontSize:12,padding:'6px 14px'},onClick:()=>{if(newCatInput.trim()){const nc=[...(userCats||[]),newCatInput.trim()];setUserCats(nc);S.s('ng_ucats',nc);setNewCatInput('');setShowAddCat(false);}}},'הוסף'),
+      h('button',{className:'bs',style:{fontSize:12},onClick:()=>setShowAddCat(false)},'ביטול')
+    ),
+    h('div',{style:{padding:'11px 18px'}},h('input',{placeholder:'חיפוש — שם, מק"ט...',value:q,onChange:e=>setQ(e.target.value),style:{maxWidth:280}})),
+    h('div',{style:{padding:'0 18px 24px',overflowX:'auto'}},
+      h('div',{className:'tw'},
+        h('table',{className:'ct',style:{tableLayout:'fixed'}},
+          h('colgroup',null,h('col',{style:{width:'3%'}}),h('col',{style:{width:'11%'}}),h('col',{style:{width:'35%'}}),h('col',{style:{width:'14%'}}),h('col',{style:{width:'14%'}}),canEdit&&h('col',{style:{width:'4%'}})),
+          h('thead',null,h('tr',null,
+            h('th',null,h('input',{type:'checkbox',checked:filtered.length>0&&filtered.every(p=>sel.has(p.id)),onChange:toggleAll})),
+            h('th',null,'מק"ט'),h('th',null,'שם מוצר'),h('th',null,'קטגוריה'),h('th',null,'הערות'),
+            canEdit&&h('th',null,'')
+          )),
+          h('tbody',null,filtered.length===0?h('tr',null,h('td',{colSpan:canEdit?6:5,style:{padding:28,textAlign:'center',color:'#9CA3AF'}},'לא נמצאו מוצרים')):
+            filtered.map((p,i)=>h('tr',{key:p.id,style:{background:sel.has(p.id)?'#EFF6FF':i%2===0?'#fff':'#FAFAFA'}},
+              h('td',{style:{textAlign:'center'}},h('input',{type:'checkbox',checked:sel.has(p.id),onChange:()=>toggle(p.id)})),
+              h('td',null,canEdit?h('input',{value:p.sku||'',onChange:e=>upd(p.id,'sku',e.target.value),style:{fontFamily:'monospace',fontSize:11,width:'100%'}}):h('span',{style:{fontFamily:'monospace',fontSize:11,color:p.sku?'#374151':'#D1D5DB'}},p.sku||'—')),
+              h('td',null,canEdit?h('input',{value:p.name||'',onChange:e=>upd(p.id,'name',e.target.value),style:{width:'100%'}}):h('span',{style:{fontWeight:500}},p.name)),
+              h('td',null,canEdit?h('select',{value:p.cat||'',onChange:e=>upd(p.id,'cat',e.target.value),style:{width:'100%',fontSize:11}},allCats.map(c=>h('option',{key:c,value:c},c))):h(CBdg,{c:p.cat})),
+              h('td',null,canEdit?h('input',{value:p.notes||'',onChange:e=>upd(p.id,'notes',e.target.value),style:{width:'100%',fontSize:12}}):h('span',{style:{fontSize:12,color:'var(--gr)'}},p.notes||'')),
+              canEdit&&h('td',{style:{textAlign:'center'}},h('button',{style:{background:'none',border:'none',cursor:'pointer',color:'var(--gr)',fontSize:14},onClick:()=>del(p.id)},'🗑'))
+            ))
+          )
+        )
+      )
+    )
+  );
+}
+
+/* ── PURCHASE REQUESTS ── */
+function ItemRow({item,idx,onChange,onRemove,products,withPrice}){
+  const[open,setOpen]=useState(false);
+  const[sq,setSq]=useState('');
+  const u=(k,v)=>onChange(idx,k,v);
+  const ms=products.filter(p=>(p.name+p.sku).toLowerCase().includes(sq.toLowerCase())).slice(0,8);
+  const s1={fontFamily:'Arial',fontSize:12,border:'1px solid #D1D5DB',borderRadius:5,padding:'5px 7px',outline:'none',background:'#fff',color:'#1a1a1a'};
+  const t=(parseFloat(item.qty)||0)*(parseFloat(item.price||0)||0);
+  return h('tr',null,
+    h('td',{style:{padding:'3px 4px',width:withPrice?'28%':'36%',position:'relative'}},
+      h('input',{value:item.name||'',onChange:e=>{u('name',e.target.value);setSq(e.target.value);setOpen(true);},onFocus:()=>{setSq(item.name||'');setOpen(true);},onBlur:()=>setTimeout(()=>setOpen(false),200),placeholder:'הקלד או בחר...',style:{...s1,width:'100%'}}),
+      open&&ms.length>0&&h('div',{style:{position:'absolute',top:'100%',right:0,left:0,background:'#fff',border:'1px solid #D1D5DB',borderRadius:6,zIndex:100,maxHeight:150,overflowY:'auto',boxShadow:'0 4px 12px rgba(0,0,0,.15)'}},
+        ms.map(p=>h('div',{key:p.id,onMouseDown:()=>{u('name',p.name);u('sku',p.sku||'');u('pid',p.id);setOpen(false);},style:{padding:'5px 9px',cursor:'pointer',fontSize:12,borderBottom:'1px solid #F3F4F6'}},
+          h('div',{style:{fontWeight:500}},p.name),h('div',{style:{color:'var(--gr)',fontSize:11}},p.sku||'ללא מק"ט')
+        ))
+      )
+    ),
+    h('td',{style:{padding:'3px 4px',width:'9%'}},h('input',{value:item.sku||'',onChange:e=>u('sku',e.target.value),style:{...s1,width:'100%',fontFamily:'monospace',fontSize:11}})),
+    h('td',{style:{padding:'3px 4px',width:'7%'}},h('input',{value:item.qty||'',onChange:e=>u('qty',e.target.value),type:'number',min:0,style:{...s1,width:'100%'}})),
+    h('td',{style:{padding:'3px 4px',width:'8%'}},h('input',{value:item.unit||'',onChange:e=>u('unit',e.target.value),placeholder:"יח'",style:{...s1,width:'100%'}})),
+    withPrice&&h('td',{style:{padding:'3px 4px',width:'10%'}},h('input',{value:item.price||'',onChange:e=>u('price',e.target.value),type:'number',min:0,placeholder:'0.00',style:{...s1,width:'100%'}})),
+    withPrice&&h('td',{style:{padding:'3px 8px',width:'11%',fontWeight:500,color:'var(--B)',fontSize:12}},t>0?t.toLocaleString('he-IL')+'₪':'—'),
+    h('td',{style:{padding:'3px 4px',width:'5%',textAlign:'center'}},h('button',{onClick:()=>onRemove(idx),style:{background:'none',border:'none',color:'#9CA3AF',fontSize:15,cursor:'pointer'}},'×'))
+  );
+}
+
+function PRForm({req,supp,products,onSave,onSubmit,onBack,user}){
+  const[f,sf]=useState(()=>JSON.parse(JSON.stringify(req)));
+  const u=(k,v)=>sf(x=>({...x,[k]:v}));
+  const ui=(i,k,v)=>sf(x=>{const it=[...x.items];it[i]={...it[i],[k]:v};return{...x,items:it};});
+  const add=()=>sf(x=>({...x,items:[...x.items,{pid:0,sku:'',name:'',qty:'',unit:'',price:''}]}));
+  const rem=i=>sf(x=>({...x,items:x.items.filter((_,j)=>j!==i)}));
+  const isMgr=['מנהל','מנהלת רכש','מנכלית'].includes(user.role);
+  const t=tot(f.items);
+  const valid=f.supplierName&&f.items.some(i=>i.name);
+  return h('div',null,
+    h('div',{className:'hdr'},
+      h('div',{style:{display:'flex',alignItems:'center',gap:11}},
+        h('button',{className:'bs',style:{padding:'5px 11px',fontSize:12},onClick:()=>{onSave(f);onBack();}},'← חזרה'),
+        h('div',null,h('div',{style:{fontSize:15,fontWeight:500}},f.num||'בקשה חדשה'),h('div',{style:{marginTop:3}},h(SBdg,{s:f.status})))
+      ),
+      h('div',{style:{display:'flex',gap:8}},h('button',{className:'bs',onClick:()=>{onSave(f);onBack();}},'שמור'),h('button',{className:'bp',disabled:!valid,style:{opacity:valid?1:.45},onClick:()=>onSubmit(f)},'שלח לאישור ↑'))
+    ),
+    h('div',{style:{padding:'13px 18px 0',display:'grid',gridTemplateColumns:'1fr 1fr',gap:11}},
+      h('div',{className:'fg'},h('label',null,'מבקש'),h('input',{value:f.reqBy||'',disabled:true})),
+      h(F,{label:'נושא',val:f.subject,set:v=>u('subject',v),ph:'תיאור קצר'}),
+      h('div',{className:'fg'},h('label',null,'ספק *'),
+        h('select',{value:f.supplierName||'',onChange:e=>{const s=supp.find(x=>x.name===e.target.value);sf(x=>({...x,supplierName:e.target.value,suppPay:s?s.pay:''}));}},
+          h('option',{value:''},'— בחר ספק —'),supp.map((s,i)=>h('option',{key:i,value:s.name},s.name+(s.city?' · '+s.city:'')))
+        )
+      ),
+      h(F,{label:'דחיפות',val:f.urgency,set:v=>u('urgency',v),type:'sel',opts:['רגיל','דחוף','מיידי']}),
+      h('div',{className:'fg'},h('label',null,'תאריך אספקה'),h('input',{type:'date',value:f.delivDate||'',onChange:e=>u('delivDate',e.target.value)})),
+      h(F,{label:'אספקה',val:f.delivMethod,set:v=>u('delivMethod',v),type:'sel',opts:['כולל משלוח','איסוף עצמי']}),
+      f.delivMethod==='כולל משלוח'&&h(F,{label:'כתובת למשלוח',val:f.delivAddr,set:v=>u('delivAddr',v),full:true})
+    ),
+    isMgr&&h('div',{style:{padding:'10px 18px 0'}},
+      h('hr',{className:'div'}),
+      h('div',{className:'sl',style:{marginTop:0}},'פרטי הצעת מחיר'),
+      h('div',{className:'g3'},
+        h(F,{label:'מס׳ הצעת מחיר',val:f.quoteRef,set:v=>u('quoteRef',v)}),
+        h('div',{className:'fg'},h('label',null,'תאריך הצעה'),h('input',{type:'date',value:f.quoteDate||'',onChange:e=>u('quoteDate',e.target.value)})),
+        h('div',{className:'fg'},h('label',null,'תנאי תשלום'),h('div',{style:{padding:'7px 10px',border:'1px solid #D1D5DB',borderRadius:6,background:'#F9FAFB',fontSize:13,color:f.suppPay?'var(--B)':'#9CA3AF'}},f.suppPay||'יועתק מהספק'))
+      )
+    ),
+    h('div',{style:{padding:'13px 18px 0'}},
+      h('div',{className:'sl',style:{marginTop:0}},'פריטים'),
+      h('div',{style:{border:'1px solid var(--bd)',borderRadius:8,overflow:'hidden',background:'#fff'}},
+        h('table',{style:{tableLayout:'fixed',width:'100%'}},
+          h('thead',null,h('tr',null,
+            ['תיאור מוצר','מק"ט','כמות','יחידה',isMgr?'מחיר יח\'':null,isMgr?'סה"כ':null,''].filter(v=>v!==null).map((hd,i)=>h('th',{key:i,style:{padding:'7px 9px',textAlign:'right',fontWeight:500,fontSize:12,color:'var(--gr)',background:'var(--bg)',borderBottom:'1px solid var(--bd)'}},hd))
+          )),
+          h('tbody',null,
+            f.items.map((item,i)=>h(ItemRow,{key:i,item,idx:i,onChange:ui,onRemove:rem,products,withPrice:isMgr})),
+            h('tr',null,h('td',{colSpan:isMgr?7:5,style:{padding:'5px 8px'}},h('button',{onClick:add,style:{background:'none',border:'1px dashed #D1D5DB',borderRadius:6,padding:'3px 11px',fontSize:12,cursor:'pointer',color:'var(--gr)',fontFamily:'Arial'}},'+ פריט')))
+          )
+        )
+      ),
+      isMgr&&t>0&&h('div',{style:{textAlign:'left',marginTop:8,fontSize:13,fontWeight:500}},'סה"כ: ',h('span',{style:{color:'var(--B)',fontSize:14}},t.toLocaleString('he-IL')+'₪'))
+    ),
+    h('div',{style:{padding:'11px 18px 22px'}},h(F,{label:'הערות',val:f.notes,set:v=>u('notes',v),type:'ta',ph:'בקשות מיוחדות, הוראות...'}))
+  );
 }
 
 function ApprovalModal({req,onApprove,onReject,onClose,code}){
@@ -607,7 +784,7 @@ function PRModule({supp,products,user,code,settings,initItems,clearInit,connecte
   };
   const onApprove=(id,note)=>{const u=reqs.find(x=>x.id===id);const nu={...u,status:'מאושרת',approvalNote:note,approvedBy:user.last+' '+user.first,approvedDate:today()};persistPR(reqs.map(x=>x.id===id?nu:x),nu);};
   const onReject=(id,note)=>{const u=reqs.find(x=>x.id===id);const nu={...u,status:'נדחתה',approvalNote:note,approvedBy:user.last+' '+user.first};persistPR(reqs.map(x=>x.id===id?nu:x),nu);};
-  const onIssued=(req,s)=>{const nu={...req,status:'הופקה הזמנה'};persistPR(reqs.map(x=>x.id===req.id?nu:x),nu);printPO(req,supp,s||settings);};
+  const onIssued=(req,s)=>{const nu={...req,status:'הופקה הזמנה'};persistPR(reqs.map(x=>x.id===req.id?nu:x),nu);printPO(req,supp,s||{});};
   const cur=reqs.find(x=>x.id===cid);
   return h('div',null,
     appFor&&h(ApprovalModal,{req:appFor,onApprove,onReject,onClose:()=>setAppFor(null),code}),
@@ -825,12 +1002,11 @@ function SettingsModule({users,setUsers,settings,setSettings,user}){
           h('button',{className:'bp',onClick:saveCode},'עדכן קוד')
         )
       ),
-
       h('hr',{className:'div',style:{marginTop:20}}),
       h('div',{style:{fontSize:15,fontWeight:500,marginBottom:14}},'פרטי החברה'),
       h('div',{style:{maxWidth:400,display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}},
         h('div',{className:'fg',style:{gridColumn:'1/-1'}},h('label',null,'שם החברה'),h('input',{value:settings.coName||'',onChange:e=>{const ns={...settings,coName:e.target.value};setSettings(ns);S.s('ng_set',ns);}})),
-        h('div',{className:'fg'},h('label',null,'ח.פ / עוסק'),h('input',{value:settings.coHp||'',onChange:e=>{const ns={...settings,coHp:e.target.value};setSettings(ns);S.s('ng_set',ns);}})),
+        h('div',{className:'fg'},h('label',null,'ח.פ'),h('input',{value:settings.coHp||'',onChange:e=>{const ns={...settings,coHp:e.target.value};setSettings(ns);S.s('ng_set',ns);}})),
         h('div',{className:'fg'},h('label',null,'טלפון'),h('input',{value:settings.coPhone||'',onChange:e=>{const ns={...settings,coPhone:e.target.value};setSettings(ns);S.s('ng_set',ns);}})),
         h('div',{className:'fg',style:{gridColumn:'1/-1'}},h('label',null,'כתובת'),h('input',{value:settings.coAddr||'',onChange:e=>{const ns={...settings,coAddr:e.target.value};setSettings(ns);S.s('ng_set',ns);}})),
         h('div',{className:'fg',style:{gridColumn:'1/-1'}},h('label',null,'מייל'),h('input',{value:settings.coEmail||'',onChange:e=>{const ns={...settings,coEmail:e.target.value};setSettings(ns);S.s('ng_set',ns);}}))
@@ -853,7 +1029,7 @@ function App(){
   const[syncMsg,setSyncMsg]=useState('');
   const[connected,setConnected]=useState(null); // null=checking, true, false
 
-  // בדיקת חיבור + טעינת נתונים בסטארט — רק אם מחובר
+  // בדיקת חיבור + טעינת נתונים בסטארט
   useEffect(()=>{
     if(!cu){setConnected(null);return;}
     (async()=>{
