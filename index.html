@@ -732,7 +732,17 @@ function PRModule({supp,products,user,code,settings,pendingId,onPendingDone,conn
     if(!connected)return;
     (async()=>{
       const rows=await gsGet('בקשות רכש');
-      if(rows){const l=parseRows(rows);setReqs(l);S.s('ng_pr',l);}
+      if(rows){
+        const fromSheets=parseRows(rows);
+        // merge: keep local reqs not yet synced to sheets
+        setReqs(cur=>{
+          const sheetIds=new Set(fromSheets.map(r=>String(r.id)));
+          const localOnly=cur.filter(r=>!sheetIds.has(String(r.id)));
+          const merged=[...fromSheets,...localOnly];
+          S.s('ng_pr',merged);
+          return merged;
+        });
+      }
     })();
   },[connected]);
   const[view,setView]=useState('list');
