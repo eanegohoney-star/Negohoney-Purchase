@@ -752,16 +752,13 @@ function PRModule({supp,products,user,code,settings,initItems,clearInit,connecte
   };
 
   useEffect(()=>{
-    if(initItems&&initItems.length>0){
-      const id=Math.max(0,...reqs.map(x=>x.id))+1;
-      const r={id,num:null,date:today(),reqBy:user.last+' '+user.first,subject:'',supplierName:'',suppPay:'',
-        items:initItems.map(p=>({pid:p.id,sku:p.sku||'',name:p.name,qty:'',unit:"יח'",price:''})),
-        urgency:'רגיל',delivDate:'',delivMethod:'כולל משלוח',delivAddr:'נגוהות ד.נ לכיש 7939000',
-        notes:'',quoteRef:'',quoteDate:'',status:'בקשת עובד',approvalNote:'',approvedBy:'',approvedDate:''};
-      const newReqs=[...reqs,r];
-      setReqs(newReqs);S.s('ng_pr',newReqs);
-      setCid(id);setView('form');
-      setTimeout(()=>clearInit(),100);
+    if(initItems&&initItems.id){
+      // req already created in App - just reload and navigate
+      const fresh=S.g('ng_pr',[]);
+      setReqs(fresh);
+      setCid(initItems.id);
+      setView('form');
+      clearInit();
     }
   },[initItems]);
 
@@ -1070,7 +1067,20 @@ function App(){
   const me=users.find(u=>u.id===cu.id)||cu;
   const isMgr=['מנהל','מנהלת רכש','מנכלית'].includes(me.role);
 
-  function onCreatePR(items){setPrItems(items);setTab('requests');}
+  function onCreatePR(items){
+    // Create the PR immediately in App state
+    const allPRs=S.g('ng_pr',[]);
+    const id=Math.max(0,...allPRs.map(x=>x.id))+1;
+    const me2=users.find(u=>u.id===cu.id)||cu;
+    const r={id,num:null,date:today(),reqBy:me2.last+' '+me2.first,subject:'',supplierName:'',suppPay:'',
+      items:items.map(p=>({pid:p.id,sku:p.sku||'',name:p.name,qty:'',unit:"יח'",price:''})),
+      urgency:'רגיל',delivDate:'',delivMethod:'כולל משלוח',delivAddr:'נגוהות ד.נ לכיש 7939000',
+      notes:'',quoteRef:'',quoteDate:'',status:'בקשת עובד',approvalNote:'',approvedBy:'',approvedDate:''};
+    const newList=[...allPRs,r];
+    S.s('ng_pr',newList);
+    setPrItems({id}); // pass only the ID
+    setTab('requests');
+  }
 
   return h('div',{style:{minHeight:'100vh',fontFamily:'Arial,sans-serif'}},
     h('div',{style:{background:'var(--nv)',color:'#fff',padding:'8px 18px',display:'flex',alignItems:'center',justifyContent:'space-between'}},
