@@ -105,7 +105,7 @@ const DU=[
   {id:5,last:'אוירבך',first:'ישי',role:'עובד'},
   {id:6,last:'גור זיו',first:'לימור',role:'מנהלת רכש'},
 ];
-const DS={code:'2266'};
+const DS={code:'2266',coName:'דבש נגוהות / Negohoney',coHp:'516484490',coAddr:'נגוהות ד.נ לכיש 7939000',coPhone:'079-6079078',coEmail:'negohoney1@gmail.com'};
 const DP=[
   {id:1,sku:'ST637644',name:'מדבקה היקפית פרחי בר 1 ק"ג',cat:'מדבקה - דבש',notes:''},
   {id:2,sku:'ST637637',name:'מדבקה היקפית פרחי בר 500 גרם',cat:'מדבקה - דבש',notes:''},
@@ -332,10 +332,10 @@ const F=({label,val,set,type,opts,ph,full,dis})=>h('div',{className:'fg',style:f
 );
 
 /* ── PDF EXPORT ── */
-function printPO(req,suppList){
+function printPO(req,suppList,cfg){
   const s=suppList.find(x=>x.name===req.supplierName)||{};
   const t=tot(req.items);
-  const CO={name:'דבש נגוהות / Negohoney',hp:'516484490',addr:'נגוהות ד.נ לכיש 7939000',phone:'079-6079078',email:'negohoney1@gmail.com'};
+  var cfg2=cfg||{};var CO={name:cfg2.coName||'דבש נגוהות / Negohoney',hp:cfg2.coHp||'516484490',addr:cfg2.coAddr||'נגוהות ד.נ לכיש 7939000',phone:cfg2.coPhone||'079-6079078',email:cfg2.coEmail||'negohoney1@gmail.com'};
   const rows=req.items.filter(i=>i.name).map((it,i)=>{
     const r=(parseFloat(it.qty)||0)*(parseFloat(it.price||0)||0);
     return '<tr><td style="text-align:center">'+(i+1)+'</td><td>'+it.name+'</td><td style="font-family:monospace;font-size:11px">'+(it.sku||'—')+'</td><td style="text-align:center">'+(it.qty||'—')+'</td><td style="text-align:center">'+(it.unit||'—')+'</td><td style="text-align:center">'+(it.price?(+it.price).toFixed(2)+'₪':'—')+'</td><td style="text-align:center;font-weight:bold;color:#8B6914">'+(r>0?r.toLocaleString('he-IL')+'₪':'—')+'</td></tr>';
@@ -356,7 +356,8 @@ function printPO(req,suppList){
   else alert('אפשרי הפעלה חסמה את החלון — אפשרי פופ-אפ בדפדפן ונסי שוב');
 }
 
-function printQuoteReq(req,suppList){
+function printQuoteReq(req,suppList,cfg){
+  var cfg2=cfg||{};var coN=cfg2.coName||'דבש נגוהות / Negohoney';var coH=cfg2.coHp||'516484490';var coA=cfg2.coAddr||'נגוהות ד.נ לכיש 7939000';var coP=cfg2.coPhone||'079-6079078';var coE=cfg2.coEmail||'negohoney1@gmail.com';
   var s=suppList.find(function(x){return x.name===req.supplierName;})||{};
   var rows=req.items.filter(function(i){return i.name;}).map(function(it,idx){
     return "<tr><td style='text-align:center;padding:7px 8px'>"+(idx+1)+"</td>"
@@ -454,7 +455,7 @@ function ApprovalModal({req,onApprove,onReject,onClose,code}){
   );
 }
 
-function PRDetail({req,user,onBack,onEdit,onApprovalOpen,onIssued,supp}){
+function PRDetail({req,user,onBack,onEdit,onApprovalOpen,onIssued,supp,settings}){
   const t=tot(req.items);
   const canEdit=['מנהל','מנהלת רכש','מנכלית'].includes(user.role)&&req.status!=='הופקה הזמנה';
   const canApprove=user.role==='מנכלית'&&req.status==='ממתינה לאישור';
@@ -468,9 +469,9 @@ function PRDetail({req,user,onBack,onEdit,onApprovalOpen,onIssued,supp}){
       ),
       h('div',{style:{display:'flex',gap:8,flexWrap:'wrap'}},
         canEdit&&h('button',{className:'bs',onClick:onEdit},'ערוך'),
-        canQuote&&h('button',{className:'bs',onClick:()=>printQuoteReq(req,supp)},'📤 הפק בקשה להצעת מחיר'),
+        canQuote&&h('button',{className:'bs',onClick:()=>printQuoteReq(req,supp,settings)},'📤 הפק בקשה להצעת מחיר'),
         canApprove&&h('button',{className:'bp',onClick:onApprovalOpen},'🔑 אישור / דחייה'),
-        canIssue&&h('button',{className:'bg',onClick:()=>onIssued(req)},'📄 הפק והדפס הזמנת רכש')
+        canIssue&&h('button',{className:'bg',onClick:()=>onIssued(req,settings)},'📄 הפק והדפס הזמנת רכש')
       )
     ),
     h('div',{style:{padding:'13px 18px 0',display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}},
@@ -547,7 +548,7 @@ function PRList({reqs,onNew,onView,onDelete,user}){
   );
 }
 
-function PRModule({supp,products,user,code,initItems,clearInit,connected}){
+function PRModule({supp,products,user,code,settings,initItems,clearInit,connected}){
   const[reqs,setReqs]=useState(()=>{
     // try to load from sheets cache first
     const fromSheets=S.g('ng_pr_sheets',null);
@@ -606,12 +607,12 @@ function PRModule({supp,products,user,code,initItems,clearInit,connected}){
   };
   const onApprove=(id,note)=>{const u=reqs.find(x=>x.id===id);const nu={...u,status:'מאושרת',approvalNote:note,approvedBy:user.last+' '+user.first,approvedDate:today()};persistPR(reqs.map(x=>x.id===id?nu:x),nu);};
   const onReject=(id,note)=>{const u=reqs.find(x=>x.id===id);const nu={...u,status:'נדחתה',approvalNote:note,approvedBy:user.last+' '+user.first};persistPR(reqs.map(x=>x.id===id?nu:x),nu);};
-  const onIssued=req=>{const nu={...req,status:'הופקה הזמנה'};persistPR(reqs.map(x=>x.id===req.id?nu:x),nu);printPO(req,supp);};
+  const onIssued=(req,s)=>{const nu={...req,status:'הופקה הזמנה'};persistPR(reqs.map(x=>x.id===req.id?nu:x),nu);printPO(req,supp,s||settings);};
   const cur=reqs.find(x=>x.id===cid);
   return h('div',null,
     appFor&&h(ApprovalModal,{req:appFor,onApprove,onReject,onClose:()=>setAppFor(null),code}),
     view==='form'&&cur?h(PRForm,{req:cur,supp,products,onSave,onSubmit,onBack:()=>setView('list'),user}):
-    view==='detail'&&cur?h(PRDetail,{req:cur,user,onBack:()=>setView('list'),onEdit:()=>setView('form'),onApprovalOpen:()=>setAppFor(cur),onIssued,supp}):
+    view==='detail'&&cur?h(PRDetail,{req:cur,user,onBack:()=>setView('list'),onEdit:()=>setView('form'),onApprovalOpen:()=>setAppFor(cur),onIssued,supp,settings}):
     h(PRList,{reqs,onNew:newReq,onView:id=>{setCid(id);setView('detail');},onDelete:id=>{if(id){persistPR(reqs.filter(x=>x.id!==id),null,id);}},user})
   );
 }
@@ -823,6 +824,16 @@ function SettingsModule({users,setUsers,settings,setSettings,user}){
           msg&&h('div',{style:{fontSize:12,color:msg.includes('✓')?'var(--G)':'var(--R)',background:msg.includes('✓')?'var(--Gl)':'var(--Rl)',padding:'5px 9px',borderRadius:6}},msg),
           h('button',{className:'bp',onClick:saveCode},'עדכן קוד')
         )
+      ),
+
+      h('hr',{className:'div',style:{marginTop:20}}),
+      h('div',{style:{fontSize:15,fontWeight:500,marginBottom:14}},'פרטי החברה'),
+      h('div',{style:{maxWidth:400,display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}},
+        h('div',{className:'fg',style:{gridColumn:'1/-1'}},h('label',null,'שם החברה'),h('input',{value:settings.coName||'',onChange:e=>{const ns={...settings,coName:e.target.value};setSettings(ns);S.s('ng_set',ns);}})),
+        h('div',{className:'fg'},h('label',null,'ח.פ / עוסק'),h('input',{value:settings.coHp||'',onChange:e=>{const ns={...settings,coHp:e.target.value};setSettings(ns);S.s('ng_set',ns);}})),
+        h('div',{className:'fg'},h('label',null,'טלפון'),h('input',{value:settings.coPhone||'',onChange:e=>{const ns={...settings,coPhone:e.target.value};setSettings(ns);S.s('ng_set',ns);}})),
+        h('div',{className:'fg',style:{gridColumn:'1/-1'}},h('label',null,'כתובת'),h('input',{value:settings.coAddr||'',onChange:e=>{const ns={...settings,coAddr:e.target.value};setSettings(ns);S.s('ng_set',ns);}})),
+        h('div',{className:'fg',style:{gridColumn:'1/-1'}},h('label',null,'מייל'),h('input',{value:settings.coEmail||'',onChange:e=>{const ns={...settings,coEmail:e.target.value};setSettings(ns);S.s('ng_set',ns);}}))
       )
     )
   );
@@ -842,8 +853,9 @@ function App(){
   const[syncMsg,setSyncMsg]=useState('');
   const[connected,setConnected]=useState(null); // null=checking, true, false
 
-  // בדיקת חיבור + טעינת נתונים בסטארט
+  // בדיקת חיבור + טעינת נתונים בסטארט — רק אם מחובר
   useEffect(()=>{
+    if(!cu){setConnected(null);return;}
     (async()=>{
       const ping=await gsFetch({action:'ping'});
       if(!ping.ok){setConnected(false);return;}
@@ -876,7 +888,7 @@ function App(){
       h('div',{style:{fontWeight:500,fontSize:15}},connected===null?'🍯 Negohoney — מתחבר...':connected?'🍯 Negohoney — מערכת רכש':'🍯 Negohoney — מנותק (עובד מקומית)'),
       h('div',{style:{display:'flex',alignItems:'center',gap:11}},
         h('div',{style:{fontSize:12}},h('span',{style:{color:'#93C5FD'}},me.last+' '+me.first),' · ',h(RBdg,{r:me.role})),
-        h('button',{onClick:()=>{setCu(null);S.s('ng_ses',null);setConnected(null);},style:{background:'rgba(255,255,255,.12)',border:'none',color:'#fff',borderRadius:6,padding:'3px 9px',fontSize:12,cursor:'pointer'}},'יציאה')
+        h('button',{onClick:()=>{setCu(null);S.s('ng_ses',null);},style:{background:'rgba(255,255,255,.12)',border:'none',color:'#fff',borderRadius:6,padding:'3px 9px',fontSize:12,cursor:'pointer'}},'יציאה')
       )
     ),
     h('div',{className:'ntabs'},[
@@ -886,7 +898,7 @@ function App(){
       ['reports','📊 דוחות',isMgr],
       ['settings','⚙ הגדרות',isMgr],
     ].filter(t=>t[2]).map(([k,l])=>h('button',{key:k,className:'ntab'+(tab===k?' on':''),onClick:()=>setTab(k)},l))),
-    tab==='requests'&&h(PRModule,{supp,products:prod,user:me,code:settings.code,initItems:prItems,clearInit:()=>setPrItems(null),connected}),
+    tab==='requests'&&h(PRModule,{supp,products:prod,user:me,code:settings.code,settings,initItems:prItems,clearInit:()=>setPrItems(null),connected}),
     tab==='catalog'&&h(Catalog,{products:prod,setProducts:setProd,onCreatePR,canEdit:isMgr,userCats,setUserCats}),
     tab==='suppliers'&&h(SuppModule,{supp,setSupp,canEdit:isMgr}),
     tab==='reports'&&h(ReportsModule,{supp}),
