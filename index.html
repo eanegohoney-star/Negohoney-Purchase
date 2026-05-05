@@ -647,10 +647,17 @@ function ApprovalModal({req,onApprove,onReject,onClose,code}){
 
 function PRDetail({req,user,onBack,onEdit,onApprovalOpen,onIssued,supp,settings}){
   const t=tot(req.items);
-  const canEdit=(user.role==='מנכלית')||
-    (['מנהל','מנהלת רכש'].includes(user.role)&&!['הופקה הזמנה'].includes(req.status));
+  const uName2=user.last+' '+user.first;
+  const isOwner=req.reqBy===uName2;
+  // מנכ"לית — עורכת הכל תמיד
+  // מנהלת רכש — עורכת הכל אבל לא לאחר אישור
+  // עובד/מנהל — עורך רק בקשות שלו, לא לאחר אישור
+  const canEdit=
+    user.role==='מנכלית' ||
+    (user.role==='מנהלת רכש' && !['מאושרת','הופקה הזמנה'].includes(req.status)) ||
+    (['עובד','מנהל'].includes(user.role) && isOwner && !['מאושרת','נדחתה','הופקה הזמנה','ממתינה לאישור'].includes(req.status));
   const canApprove=user.role==='מנכלית'&&req.status==='ממתינה לאישור';
-  const canQuote=['מנהל','מנהלת רכש','מנכלית'].includes(user.role)&&['בקשת עובד','ממתינה להצעה','הצעת מחיר התקבלה','ממתינה לאישור'].includes(req.status);
+  const canQuote=['בקשת עובד','ממתינה להצעה','הצעת מחיר התקבלה','ממתינה לאישור'].includes(req.status);
   const canIssue=['מנהלת רכש','מנכלית'].includes(user.role)&&req.status==='מאושרת';
   return h('div',null,
     h('div',{className:'hdr'},
@@ -695,11 +702,12 @@ function PRDetail({req,user,onBack,onEdit,onApprovalOpen,onIssued,supp,settings}
   );
 }
 
-function PRList({reqs,onNew,onView,onDelete,onRefresh,refreshing,user,isMgrRole,myName}){
+function PRList({reqs,onNew,onView,onDelete,onRefresh,refreshing,user}){
   const[filt,setFilt]=useState('הכל');const[q,setQ]=useState('');
-  // props: isMgrRole, myName passed from PRModule
-  // מנהלת רכש ומנכ"לית רואות הכל, שאר רואים רק שלהם
-  const mine=isMgrRole?reqs:reqs.filter(r=>r.reqBy===myName);
+  const isAdmin=['מנהלת רכש','מנכלית'].includes(user.role);
+  const uName=user.last+' '+user.first;
+  // מנהלת רכש ומנכ"לית רואות הכל. שאר — רק שלהם
+  const mine=isAdmin?reqs:reqs.filter(r=>r.reqBy===uName);
   const stats=['הכל','בקשת עובד','ממתינה להצעה','הצעת מחיר התקבלה','ממתינה לאישור','מאושרת','נדחתה','הופקה הזמנה'];
   const cnt=Object.fromEntries(stats.map(s=>[s,s==='הכל'?mine.length:mine.filter(r=>r.status===s).length]));
   const pending=reqs.filter(r=>r.status==='ממתינה לאישור').length;
@@ -733,10 +741,9 @@ function PRList({reqs,onNew,onView,onDelete,onRefresh,refreshing,user,isMgrRole,
             h('td',null,h(SBdg,{s:r.status})),
             h('td',{style:{textAlign:'center',display:'flex',gap:4,justifyContent:'center'}},
               (()=>{
-                const isPostApproval=['ממתינה לאישור','מאושרת','נדחתה','הופקה הזמנה'].includes(r.status);
-                const canOpen=isMgrRole||(r.reqBy===myName&&!isPostApproval);
-                return canOpen?h('button',{className:'bsm',onClick:()=>onView(r.id)},'פתח'):
-                  h('span',{style:{fontSize:11,color:'#CCC'}},isPostApproval?'בטיפול':'--');
+                // Admin sees all; others only their own
+                const canOpen=isAdmin||(r.reqBy===uName);
+                return canOpen?h('button',{className:'bsm',onClick:()=>onView(r.id)},'פתח'):null;
               })(),
               user.role==='מנכלית'&&h('button',{style:{background:'none',border:'1px solid #FCA5A5',borderRadius:6,padding:'3px 8px',fontSize:11,color:'var(--R)',cursor:'pointer',fontFamily:'Arial'},onClick:(e)=>{e.stopPropagation();if(confirm('למחוק בקשה '+r.num+'?'))onDelete(r.id);}},'🗑')
             )
@@ -853,9 +860,7 @@ function PRModule({supp,products,user,code,settings,pendingId,onPendingDone,conn
     h(PRList,{reqs,onNew:newReq,
     onView:id=>{setCid(id);setView('detail');},
     onDelete:id=>{if(id){persistPR(reqs.filter(x=>x.id!==id),null,id);}},
-    onRefresh:refreshFromSheets,refreshing,user,
-    isMgrRole:['מנהלת רכש','מנכלית'].includes(user.role),
-    myName:user.last+' '+user.first})
+    onRefresh:refreshFromSheets,refreshing,user})
   );
 }
 
