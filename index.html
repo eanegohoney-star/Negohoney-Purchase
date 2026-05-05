@@ -752,48 +752,47 @@ function PRList({reqs,onNew,onView,onDelete,onRefresh,refreshing,user}){
 
 function PRModule({supp,products,user,code,settings,pendingId,onPendingDone,connected}){
   const[reqs,setReqs]=useState(()=>S.g('ng_pr',[]));
-  // load fresh from sheets if connected
+  // טעינה מ-Sheets — מנסה בכל כניסה, עם retry
   useEffect(()=>{
-    if(connected===false){return;}
-    if(!connected)return;
-    // timeout — לא חוסמים יותר מ-8 שניות
-    const t=setTimeout(()=>{},1);
-    (async()=>{
+    let cancelled=false;
+    async function load(){
       try{
         const rows=await gsGet('בקשות רכש');
-        clearTimeout(t);
-        if(rows!==null){
-          const fromSheets=parseRows(rows);
-          setReqs(cur=>{
-            const sheetIds=new Set(fromSheets.map(r=>String(r.id)));
-            const unsaved=cur.filter(r=>!r.num&&!sheetIds.has(String(r.id)));
-            const merged=[...fromSheets,...unsaved];
-            S.s('ng_pr',merged);
-            return merged;
-          });
-        }
-      }catch(e){clearTimeout(t);}
-      
-    })();
-    return ()=>clearTimeout(t);
+        if(cancelled||rows===null)return;
+        const fromSheets=parseRows(rows);
+        setReqs(cur=>{
+          const sheetIds=new Set(fromSheets.map(r=>String(r.id)));
+          const unsaved=cur.filter(r=>!r.num&&!sheetIds.has(String(r.id)));
+          const merged=[...fromSheets,...unsaved];
+          S.s('ng_pr',merged);
+          return merged;
+        });
+      }catch(e){}
+    }
+    // נסה מיד וגם אחרי שה-connection מתייצב
+    load();
+    if(connected===true)load();
+    return ()=>{cancelled=true;};
   },[connected]);
 
   // רענון ידני
   const[refreshing,setRefreshing]=useState(false);
   async function refreshFromSheets(){
-    if(!connected||refreshing)return;
+    if(refreshing)return;
     setRefreshing(true);
-    const rows=await gsGet('בקשות רכש');
-    if(rows!==null){
-      const fromSheets=parseRows(rows);
-      setReqs(cur=>{
-        const sheetIds=new Set(fromSheets.map(r=>String(r.id)));
-        const unsaved=cur.filter(r=>!r.num&&!sheetIds.has(String(r.id)));
-        const merged=[...fromSheets,...unsaved];
-        S.s('ng_pr',merged);
-        return merged;
-      });
-    }
+    try{
+      const rows=await gsGet('בקשות רכש');
+      if(rows!==null){
+        const fromSheets=parseRows(rows);
+        setReqs(cur=>{
+          const sheetIds=new Set(fromSheets.map(r=>String(r.id)));
+          const unsaved=cur.filter(r=>!r.num&&!sheetIds.has(String(r.id)));
+          const merged=[...fromSheets,...unsaved];
+          S.s('ng_pr',merged);
+          return merged;
+        });
+      }
+    }catch(e){}
     setRefreshing(false);
   }
   const[view,setView]=useState('list');
