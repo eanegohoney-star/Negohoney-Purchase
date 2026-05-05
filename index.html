@@ -62,7 +62,7 @@ function gsFetch(params){
     const sc=document.createElement('script');
     sc.src=url;
     sc.onerror=()=>{try{delete window[cb];sc.remove();}catch(e){}reject(new Error('JSONP error'));};
-    const t=setTimeout(()=>{try{delete window[cb];sc.remove();}catch(e){}reject(new Error('timeout'));},15000);
+    const t=setTimeout(()=>{try{delete window[cb];sc.remove();}catch(e){}reject(new Error('timeout'));},8000);
     sc.onload=()=>clearTimeout(t);
     document.head.appendChild(sc);
   });
@@ -761,22 +761,26 @@ function PRModule({supp,products,user,code,settings,pendingId,onPendingDone,conn
   useEffect(()=>{
     if(connected===false){setLoading(false);return;}
     if(!connected)return;
+    // timeout — לא חוסמים יותר מ-8 שניות
+    const t=setTimeout(()=>setLoading(false),8000);
     (async()=>{
-      const rows=await gsGet('בקשות רכש');
-      if(rows!==null){
-        const fromSheets=parseRows(rows);
-        // Sheets is the source of truth
-        // Only merge local reqs that have no num yet (brand new, not yet saved to Sheets)
-        setReqs(cur=>{
-          const sheetIds=new Set(fromSheets.map(r=>String(r.id)));
-          const unsaved=cur.filter(r=>!r.num&&!sheetIds.has(String(r.id)));
-          const merged=[...fromSheets,...unsaved];
-          S.s('ng_pr',merged);
-          return merged;
-        });
-      }
+      try{
+        const rows=await gsGet('בקשות רכש');
+        clearTimeout(t);
+        if(rows!==null){
+          const fromSheets=parseRows(rows);
+          setReqs(cur=>{
+            const sheetIds=new Set(fromSheets.map(r=>String(r.id)));
+            const unsaved=cur.filter(r=>!r.num&&!sheetIds.has(String(r.id)));
+            const merged=[...fromSheets,...unsaved];
+            S.s('ng_pr',merged);
+            return merged;
+          });
+        }
+      }catch(e){clearTimeout(t);}
       setLoading(false);
     })();
+    return ()=>clearTimeout(t);
   },[connected]);
 
   // רענון ידני
