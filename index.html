@@ -681,7 +681,7 @@ function PRDetail({req,user,onBack,onEdit,onApprovalOpen,onIssued,supp,settings}
   );
 }
 
-function PRList({reqs,onNew,onView,onDelete,user}){
+function PRList({reqs,onNew,onView,onDelete,onRefresh,refreshing,user}){
   const[filt,setFilt]=useState('הכל');const[q,setQ]=useState('');
   const mine=user.role==='עובד'?reqs.filter(r=>r.reqBy===user.last+' '+user.first):reqs;
   const stats=['הכל','בקשת עובד','ממתינה להצעה','הצעת מחיר התקבלה','ממתינה לאישור','מאושרת','נדחתה','הופקה הזמנה'];
@@ -693,6 +693,7 @@ function PRList({reqs,onNew,onView,onDelete,user}){
       h('div',null,h('div',{style:{fontSize:16,fontWeight:500}},'בקשות רכש'),h('div',{style:{fontSize:12,color:'var(--gr)',marginTop:2}},mine.length+' בקשות')),
       h('div',{style:{display:'flex',gap:8,alignItems:'center'}},
         pending>0&&user.role==='מנכלית'&&h('span',{style:{background:'var(--Al)',border:'1px solid var(--A)',color:'var(--A)',padding:'4px 11px',borderRadius:6,fontSize:12,fontWeight:500}},'⏳ '+pending+' ממתינות לאישורך'),
+        h('button',{className:'bs',onClick:onRefresh,disabled:refreshing,style:{fontSize:12,padding:'6px 12px'}},refreshing?'מרענן...':'🔄 רענן'),
         h('button',{className:'bp',onClick:onNew},'+ בקשה חדשה')
       )
     ),
@@ -745,6 +746,25 @@ function PRModule({supp,products,user,code,settings,pendingId,onPendingDone,conn
       }
     })();
   },[connected]);
+
+  // רענון ידני
+  const[refreshing,setRefreshing]=useState(false);
+  async function refreshFromSheets(){
+    if(!connected||refreshing)return;
+    setRefreshing(true);
+    const rows=await gsGet('בקשות רכש');
+    if(rows){
+      const fromSheets=parseRows(rows);
+      setReqs(cur=>{
+        const sheetIds=new Set(fromSheets.map(r=>String(r.id)));
+        const localOnly=cur.filter(r=>!sheetIds.has(String(r.id)));
+        const merged=[...fromSheets,...localOnly];
+        S.s('ng_pr',merged);
+        return merged;
+      });
+    }
+    setRefreshing(false);
+  }
   const[view,setView]=useState('list');
   const[cid,setCid]=useState(null);
   const[appFor,setAppFor]=useState(null);
@@ -797,7 +817,7 @@ function PRModule({supp,products,user,code,settings,pendingId,onPendingDone,conn
     appFor&&h(ApprovalModal,{req:appFor,onApprove,onReject,onClose:()=>setAppFor(null),code}),
     view==='form'&&cur?h(PRForm,{req:cur,supp,products,onSave,onSubmit,onBack:()=>setView('list'),user}):
     view==='detail'&&cur?h(PRDetail,{req:cur,user,onBack:()=>setView('list'),onEdit:()=>setView('form'),onApprovalOpen:()=>setAppFor(cur),onIssued,supp,settings}):
-    h(PRList,{reqs,onNew:newReq,onView:id=>{setCid(id);setView('detail');},onDelete:id=>{if(id){persistPR(reqs.filter(x=>x.id!==id),null,id);}},user})
+    h(PRList,{reqs,onNew:newReq,onView:id=>{setCid(id);setView('detail');},onDelete:id=>{if(id){persistPR(reqs.filter(x=>x.id!==id),null,id);}},onRefresh:refreshFromSheets,refreshing,user})
   );
 }
 
