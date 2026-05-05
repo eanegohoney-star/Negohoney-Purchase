@@ -544,7 +544,7 @@ function ItemRow({item,idx,onChange,onRemove,products,withPrice}){
   );
 }
 
-function PRForm({req,supp,products,onSave,onSubmit,onBack,user}){
+function PRForm({req,supp,products,onSave,onSubmit,onBack,user,settings}){
   const[f,sf]=useState(()=>JSON.parse(JSON.stringify(req)));
   const u=(k,v)=>sf(x=>({...x,[k]:v}));
   const ui=(i,k,v)=>sf(x=>{const it=[...x.items];it[i]={...it[i],[k]:v};return{...x,items:it};});
@@ -553,13 +553,26 @@ function PRForm({req,supp,products,onSave,onSubmit,onBack,user}){
   const isMgr=['מנהל','מנהלת רכש','מנכלית'].includes(user.role);
   const t=tot(f.items);
   const valid=f.supplierName&&f.items.some(i=>i.name);
+  const hasQuote=f.quoteRef&&f.quoteDate&&f.items.some(i=>i.price&&parseFloat(i.price)>0);
   return h('div',null,
     h('div',{className:'hdr'},
       h('div',{style:{display:'flex',alignItems:'center',gap:11}},
         h('button',{className:'bs',style:{padding:'5px 11px',fontSize:12},onClick:()=>{onSave(f);onBack();}},'← חזרה'),
         h('div',null,h('div',{style:{fontSize:15,fontWeight:500}},f.num||'בקשה חדשה'),h('div',{style:{marginTop:3}},h(SBdg,{s:f.status})))
       ),
-      h('div',{style:{display:'flex',gap:8}},h('button',{className:'bs',onClick:()=>{onSave(f);onBack();}},'שמור'),h('button',{className:'bp',disabled:!valid,style:{opacity:valid?1:.45},onClick:()=>onSubmit(f)},'שלח לאישור ↑'))
+      h('div',{style:{display:'flex',gap:8,flexWrap:'wrap'}},
+        h('button',{className:'bs',onClick:()=>{onSave(f);onBack();}},'שמור'),
+        h('button',{className:'bs',style:{borderColor:'var(--B)',color:'var(--B)'},
+          disabled:!f.supplierName,
+          style:{opacity:f.supplierName?1:.45,borderColor:'var(--B)',color:'var(--B)',background:'#fff',border:'1px solid var(--B)',borderRadius:8,padding:'8px 14px',fontSize:13,cursor:'pointer'},
+          onClick:()=>{onSave(f);printQuoteReq(f,supp,settings);}},
+          '📤 בקשה להצעת מחיר'),
+        h('button',{className:'bp',
+          disabled:!valid||!hasQuote,
+          style:{opacity:(valid&&hasQuote)?1:.45},
+          title:!hasQuote?'יש למלא פרטי הצעת מחיר לפני שליחה לאישור':'',
+          onClick:()=>onSubmit(f)},'שלח לאישור ↑')
+      )
     ),
     h('div',{style:{padding:'13px 18px 0',display:'grid',gridTemplateColumns:'1fr 1fr',gap:11}},
       h('div',{className:'fg'},h('label',null,'מבקש'),h('input',{value:f.reqBy||'',disabled:true})),
@@ -827,7 +840,7 @@ function PRModule({supp,products,user,code,settings,pendingId,onPendingDone,conn
 
   return h('div',null,
     appFor&&h(ApprovalModal,{req:appFor,onApprove,onReject,onClose:()=>setAppFor(null),code}),
-    view==='form'&&cur?h(PRForm,{req:cur,supp,products,onSave,onSubmit,onBack:()=>setView('list'),user}):
+    view==='form'&&cur?h(PRForm,{req:cur,supp,products,onSave,onSubmit,onBack:()=>setView('list'),user,settings}):
     view==='detail'&&cur?h(PRDetail,{req:cur,user,onBack:()=>setView('list'),onEdit:()=>setView('form'),onApprovalOpen:()=>setAppFor(cur),onIssued,supp,settings}):
     h(PRList,{reqs,onNew:newReq,onView:id=>{setCid(id);setView('detail');},onDelete:id=>{if(id){persistPR(reqs.filter(x=>x.id!==id),null,id);}},onRefresh:refreshFromSheets,refreshing,user})
   );
