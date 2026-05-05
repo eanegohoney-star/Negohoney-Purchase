@@ -647,7 +647,8 @@ function ApprovalModal({req,onApprove,onReject,onClose,code}){
 
 function PRDetail({req,user,onBack,onEdit,onApprovalOpen,onIssued,supp,settings}){
   const t=tot(req.items);
-  const canEdit=['מנהל','מנהלת רכש','מנכלית'].includes(user.role)&&req.status!=='הופקה הזמנה';
+  const canEdit=(user.role==='מנכלית')||
+    (['מנהל','מנהלת רכש'].includes(user.role)&&!['הופקה הזמנה'].includes(req.status));
   const canApprove=user.role==='מנכלית'&&req.status==='ממתינה לאישור';
   const canQuote=['מנהל','מנהלת רכש','מנכלית'].includes(user.role)&&['בקשת עובד','ממתינה להצעה','הצעת מחיר התקבלה','ממתינה לאישור'].includes(req.status);
   const canIssue=['מנהלת רכש','מנכלית'].includes(user.role)&&req.status==='מאושרת';
@@ -694,9 +695,11 @@ function PRDetail({req,user,onBack,onEdit,onApprovalOpen,onIssued,supp,settings}
   );
 }
 
-function PRList({reqs,onNew,onView,onDelete,onRefresh,refreshing,user}){
+function PRList({reqs,onNew,onView,onDelete,onRefresh,refreshing,user,isMgrRole,myName}){
   const[filt,setFilt]=useState('הכל');const[q,setQ]=useState('');
-  const mine=user.role==='עובד'?reqs.filter(r=>r.reqBy===user.last+' '+user.first):reqs;
+  // props: isMgrRole, myName passed from PRModule
+  // מנהלת רכש ומנכ"לית רואות הכל, שאר רואים רק שלהם
+  const mine=isMgrRole?reqs:reqs.filter(r=>r.reqBy===myName);
   const stats=['הכל','בקשת עובד','ממתינה להצעה','הצעת מחיר התקבלה','ממתינה לאישור','מאושרת','נדחתה','הופקה הזמנה'];
   const cnt=Object.fromEntries(stats.map(s=>[s,s==='הכל'?mine.length:mine.filter(r=>r.status===s).length]));
   const pending=reqs.filter(r=>r.status==='ממתינה לאישור').length;
@@ -729,7 +732,12 @@ function PRList({reqs,onNew,onView,onDelete,onRefresh,refreshing,user}){
             h('td',{style:{fontSize:11}},fmtD(r.delivDate)),
             h('td',null,h(SBdg,{s:r.status})),
             h('td',{style:{textAlign:'center',display:'flex',gap:4,justifyContent:'center'}},
-              h('button',{className:'bsm',onClick:()=>onView(r.id)},'פתח'),
+              (()=>{
+                const isPostApproval=['ממתינה לאישור','מאושרת','נדחתה','הופקה הזמנה'].includes(r.status);
+                const canOpen=isMgrRole||(r.reqBy===myName&&!isPostApproval);
+                return canOpen?h('button',{className:'bsm',onClick:()=>onView(r.id)},'פתח'):
+                  h('span',{style:{fontSize:11,color:'#CCC'}},isPostApproval?'בטיפול':'--');
+              })(),
               user.role==='מנכלית'&&h('button',{style:{background:'none',border:'1px solid #FCA5A5',borderRadius:6,padding:'3px 8px',fontSize:11,color:'var(--R)',cursor:'pointer',fontFamily:'Arial'},onClick:(e)=>{e.stopPropagation();if(confirm('למחוק בקשה '+r.num+'?'))onDelete(r.id);}},'🗑')
             )
           );}))
@@ -842,7 +850,12 @@ function PRModule({supp,products,user,code,settings,pendingId,onPendingDone,conn
     appFor&&h(ApprovalModal,{req:appFor,onApprove,onReject,onClose:()=>setAppFor(null),code}),
     view==='form'&&cur?h(PRForm,{req:cur,supp,products,onSave,onSubmit,onBack:()=>setView('list'),user,settings}):
     view==='detail'&&cur?h(PRDetail,{req:cur,user,onBack:()=>setView('list'),onEdit:()=>setView('form'),onApprovalOpen:()=>setAppFor(cur),onIssued,supp,settings}):
-    h(PRList,{reqs,onNew:newReq,onView:id=>{setCid(id);setView('detail');},onDelete:id=>{if(id){persistPR(reqs.filter(x=>x.id!==id),null,id);}},onRefresh:refreshFromSheets,refreshing,user})
+    h(PRList,{reqs,onNew:newReq,
+    onView:id=>{setCid(id);setView('detail');},
+    onDelete:id=>{if(id){persistPR(reqs.filter(x=>x.id!==id),null,id);}},
+    onRefresh:refreshFromSheets,refreshing,user,
+    isMgrRole:['מנהלת רכש','מנכלית'].includes(user.role),
+    myName:user.last+' '+user.first})
   );
 }
 
