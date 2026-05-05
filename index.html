@@ -727,23 +727,27 @@ function PRList({reqs,onNew,onView,onDelete,onRefresh,refreshing,user}){
 }
 
 function PRModule({supp,products,user,code,settings,pendingId,onPendingDone,connected}){
-  const[reqs,setReqs]=useState(()=>S.g('ng_pr',[]));
+  const[reqs,setReqs]=useState([]);
+  const[loading,setLoading]=useState(true);
   // load fresh from sheets if connected
   useEffect(()=>{
+    if(connected===false){setLoading(false);return;}
     if(!connected)return;
     (async()=>{
       const rows=await gsGet('בקשות רכש');
-      if(rows){
+      if(rows!==null){
         const fromSheets=parseRows(rows);
-        // merge: keep local reqs not yet synced to sheets
+        // Sheets is the source of truth
+        // Only merge local reqs that have no num yet (brand new, not yet saved to Sheets)
         setReqs(cur=>{
           const sheetIds=new Set(fromSheets.map(r=>String(r.id)));
-          const localOnly=cur.filter(r=>!sheetIds.has(String(r.id)));
-          const merged=[...fromSheets,...localOnly];
+          const unsaved=cur.filter(r=>!r.num&&!sheetIds.has(String(r.id)));
+          const merged=[...fromSheets,...unsaved];
           S.s('ng_pr',merged);
           return merged;
         });
       }
+      setLoading(false);
     })();
   },[connected]);
 
@@ -753,12 +757,12 @@ function PRModule({supp,products,user,code,settings,pendingId,onPendingDone,conn
     if(!connected||refreshing)return;
     setRefreshing(true);
     const rows=await gsGet('בקשות רכש');
-    if(rows){
+    if(rows!==null){
       const fromSheets=parseRows(rows);
       setReqs(cur=>{
         const sheetIds=new Set(fromSheets.map(r=>String(r.id)));
-        const localOnly=cur.filter(r=>!sheetIds.has(String(r.id)));
-        const merged=[...fromSheets,...localOnly];
+        const unsaved=cur.filter(r=>!r.num&&!sheetIds.has(String(r.id)));
+        const merged=[...fromSheets,...unsaved];
         S.s('ng_pr',merged);
         return merged;
       });
@@ -779,7 +783,7 @@ function PRModule({supp,products,user,code,settings,pendingId,onPendingDone,conn
       onPendingDone();
     }
   },[pendingId]);
-  const persist=l=>{setReqs(l);S.s('ng_pr',l);};
+  const persist=l=>{setReqs(l);S.s('ng_pr',l);}; // localStorage backup
   const persistPR=async(l,changed,deleted)=>{
     persist(l);
     if(connected){
@@ -813,6 +817,14 @@ function PRModule({supp,products,user,code,settings,pendingId,onPendingDone,conn
   const onReject=(id,note)=>{const u=reqs.find(x=>x.id===id);const nu={...u,status:'נדחתה',approvalNote:note,approvedBy:user.last+' '+user.first};persistPR(reqs.map(x=>x.id===id?nu:x),nu);};
   const onIssued=(req,s)=>{const nu={...req,status:'הופקה הזמנה'};persistPR(reqs.map(x=>x.id===req.id?nu:x),nu);printPO(req,supp,s||{});};
   const cur=reqs.find(x=>x.id===cid);
+
+  // Show loading while fetching from Sheets
+  if(loading&&connected!==false)return h('div',{style:{padding:'48px',textAlign:'center',color:'var(--gr)'}},
+    h('div',{style:{fontSize:28,marginBottom:12}},'⏳'),
+    h('div',{style:{fontSize:14,fontWeight:500}},'טוען בקשות מהשרת...'),
+    h('div',{style:{fontSize:12,marginTop:6,color:'#9CA3AF'}},'מתחבר ל-Google Sheets')
+  );
+
   return h('div',null,
     appFor&&h(ApprovalModal,{req:appFor,onApprove,onReject,onClose:()=>setAppFor(null),code}),
     view==='form'&&cur?h(PRForm,{req:cur,supp,products,onSave,onSubmit,onBack:()=>setView('list'),user}):
