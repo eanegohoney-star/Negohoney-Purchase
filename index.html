@@ -123,6 +123,9 @@ textarea{resize:vertical;min-height:76px}
 .alert-info{background:#DBEAFE;border:1px solid #93C5FD;color:#1E40AF}
 .inv-bar{width:70px;height:6px;border-radius:3px;background:var(--border);overflow:hidden;display:inline-block;vertical-align:middle}
 .inv-bar-fill{height:100%;border-radius:3px}
+.backup-box{background:#F8FAFC;border:2px dashed #CBD5E1;border-radius:10px;padding:20px;margin-top:24px}
+.backup-title{font-size:14px;font-weight:700;color:var(--dark);margin-bottom:6px}
+.backup-sub{font-size:12px;color:var(--muted);margin-bottom:14px}
 .delivery-section{background:#F0FDF4;border:1px solid #86EFAC;border-radius:10px;padding:16px 18px;margin-top:16px}
 .delivery-section-title{font-size:13px;font-weight:700;color:#15803D;margin-bottom:12px}
 .delivery-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
@@ -160,14 +163,56 @@ const canManage=()=>getRole()==='מנכ"לית'||getRole()==='מנהלת רכש'
 (function init(){
   if(!ld(K.paymentTerms,null)) sv(K.paymentTerms,['שוטף + 30','שוטף + 60','שוטף + 90','מזומן','אשראי 45 יום']);
   if(!ld(K.deliveryTypes,null)) sv(K.deliveryTypes,['משלוח עד דלת','איסוף עצמי','שליח חיצוני','הובלה']);
-  const _eu=ld(K.users,null);
-  if(!_eu||_eu.some(u=>!u.firstName)){
-    sv(K.users,[
+  // תמיד ודא שאליה אלון קיימת עם הרשאות מנכ"לית
+  const _eu=ld(K.users,null)||[];
+  const hasElia=_eu.some(u=>(u.firstName||u.name||'')==='אליה'&&(u.lastName||'')==='אלון');
+  if(!hasElia){
+    const existing=_eu.filter(u=>!((u.firstName||u.name||'')==='אליה'));
+    const base=[
       {id:'u1',firstName:'אליה',lastName:'אלון',role:'מנכ"לית'},
       {id:'u2',firstName:'לימור',lastName:'גור זיו',role:'מנהלת רכש'}
-    ]);
+    ];
+    // שמור משתמשים קיימים שאינם אליה ואינם לימור
+    const others=existing.filter(u=>{
+      const fn=(u.firstName||u.name||'');
+      return fn!=='לימור'&&fn!=='אליה';
+    });
+    sv(K.users,[...base,...others]);
   }
 })();
+
+// ── BACKUP / RESTORE ─────────────────────────────────────────
+function exportData(){
+  const data={};
+  Object.entries(K).forEach(([k,key])=>{
+    const v=localStorage.getItem(key);
+    if(v) data[key]=JSON.parse(v);
+  });
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='nagohot-backup-'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();
+}
+
+function importData(){
+  const input=document.createElement('input');
+  input.type='file';input.accept='.json';
+  input.onchange=e=>{
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        const data=JSON.parse(ev.target.result);
+        Object.entries(data).forEach(([key,val])=>localStorage.setItem(key,JSON.stringify(val)));
+        alert('הנתונים יובאו בהצלחה! המערכת תתרענן.');
+        location.reload();
+      }catch{alert('שגיאה בקובץ — ודאי שזה קובץ גיבוי תקין');}
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
 
 // ── STATE ────────────────────────────────────────────────────
 let S={tab:'requests',modal:null,editing:null};
@@ -241,7 +286,7 @@ function renderApp(role){
     ${canManage()?tab('inventory','📦 מלאי',0,lowInv):''}
     ${canManage()?tab('suppliers','🏢 ספקים'):''}
     ${canManage()?tab('products','🗂️ קטלוג'):''}
-    ${canManage()?tab('settings','⚙️ הגדרות'):''}
+    ${tab('settings','⚙️ הגדרות')}
   </div>
   <div class="content">${renderTab(S.tab,role)}</div>
   ${renderModal()}`;
@@ -255,7 +300,7 @@ function setTab(t){S.tab=t;S.modal=null;render()}
 
 function renderTab(t,role){
   if(t==='requests')return renderRequests(role);
-  if(!canManage())return renderRequests(role);
+  if(!canManage()&&t!=='settings')return renderRequests(role);
   if(t==='inventory')return renderInventory(role);
   if(t==='suppliers')return renderSuppliers();
   if(t==='products')return renderProducts();
@@ -602,16 +647,39 @@ function renderSettings(role){
       </div>
     </div>
 
-    <div>
-      <div class="section-title">משתמשים</div>
-      ${admin?`<div class="alert-bar alert-info" style="margin-bottom:12px;font-size:12px">רק מנכ"לית יכולה להוסיף ולהסיר משתמשים</div>`:''}
-      <div class="settings-list">
-        ${users.map(u=>`<div class="settings-item">
-          <span><b>${fullName(u)}</b> <span style="color:var(--muted)">— ${u.role}</span></span>
-          ${admin&&u.role!=='מנכ"לית'?`<button class="btn btn-danger btn-sm" onclick="delUser('${u.id}')">הסר</button>`:'<span></span>'}
-        </div>`).join('')}
+    <div style="grid-column:1/-1">
+      <div class="section-title">רשימת עובדים ומשתמשים</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>שם פרטי</th><th>שם משפחה</th><th>תפקיד</th><th>טלפון</th><th>אימייל</th><th>הערות</th><th>פעולות</th></tr></thead>
+          <tbody>
+            ${users.map(u=>`<tr>
+              <td><b>${u.firstName||u.name||''}</b></td>
+              <td>${u.lastName||''}</td>
+              <td><span class="badge ${u.role==='מנכ\"לית'?'badge-order':u.role==='מנהלת רכש'?'badge-internal':'badge-draft'}">${u.role}</span></td>
+              <td>${u.phone||'—'}</td>
+              <td>${u.email||'—'}</td>
+              <td style="color:var(--muted);font-size:12px">${u.notes||''}</td>
+              <td>
+                <div style="display:flex;gap:5px">
+                  ${admin||getRole()==='מנהלת רכש'?`<button class="btn btn-secondary btn-sm" onclick="editUser('${u.id}')">ערוך</button>`:''}
+                  ${admin&&u.role!=='מנכ\"לית'?`<button class="btn btn-danger btn-sm" onclick="delUser('${u.id}')">הסר</button>`:''}
+                </div>
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
       </div>
-      ${admin?`<button class="btn btn-primary" style="margin-top:8px" onclick="openModal('add-user')">+ הוסף משתמש</button>`:''}
+      ${admin?`<button class="btn btn-primary" style="margin-top:12px" onclick="openModal('add-user')">+ הוסף משתמש</button>`:''}
+    </div>
+  </div>
+
+  <div class="backup-box">
+    <div class="backup-title">💾 גיבוי ושחזור נתונים</div>
+    <div class="backup-sub">ייצאי את כל נתוני המערכת לקובץ JSON לפני כל עדכון, ויבאי אותו בגרסה החדשה — כדי לא לאבד ספקים, מוצרים והזמנות.</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="exportData()">📤 ייצוא נתונים (גיבוי)</button>
+      <button class="btn btn-secondary" onclick="importData()">📥 ייבוא נתונים (שחזור)</button>
     </div>
   </div>`;
 }
@@ -621,9 +689,21 @@ function delPt(i){const a=ld(K.paymentTerms,[]);a.splice(i,1);sv(K.paymentTerms,
 function addDt(){const v=document.getElementById('new-dt')?.value.trim();if(!v)return;const a=ld(K.deliveryTypes,[]);a.push(v);sv(K.deliveryTypes,a);render()}
 function delDt(i){const a=ld(K.deliveryTypes,[]);a.splice(i,1);sv(K.deliveryTypes,a);render()}
 function delUser(id){if(!confirm('להסיר משתמש?'))return;sv(K.users,ld(K.users,[]).filter(u=>u.id!==id));render()}
+function editUser(id){
+  S.editing=ld(K.users,[]).find(u=>u.id===id);
+  S.modal='add-user';
+  render();
+}
+
 function submitUser(){
   const f=fd('user-form');if(!f.firstName||!f.role){alert('חובה שם פרטי ותפקיד');return}
-  const users=ld(K.users,[]);users.push({id:nextId('USR'),firstName:f.firstName,lastName:f.lastName||'',role:f.role});
+  const users=ld(K.users,[]);
+  if(S.editing&&S.editing.id){
+    const i=users.findIndex(u=>u.id===S.editing.id);
+    if(i>=0) users[i]={...users[i],...f,firstName:f.firstName,lastName:f.lastName||''};
+  } else {
+    users.push({id:nextId('USR'),firstName:f.firstName,lastName:f.lastName||'',role:f.role,phone:f.phone||'',email:f.email||'',notes:f.notes||''});
+  }
   sv(K.users,users);S.modal=null;render();
 }
 
@@ -831,21 +911,29 @@ function renderModal(){
 
   // ── Add User ──
   else if(S.modal==='add-user'){
-    title='הוספת משתמש';
+    const eu=S.editing||{};
+    title=eu.id?`ערוך משתמש — ${fullName(eu)}`:'הוספת משתמש';
     body=`<form id="user-form">
       <div class="form-grid">
-        <div class="form-row"><label>שם פרטי *</label><input name="firstName" placeholder="שם פרטי"></div>
-        <div class="form-row"><label>שם משפחה *</label><input name="lastName" placeholder="שם משפחה"></div>
+        <div class="form-row"><label>שם פרטי *</label><input name="firstName" value="${eu.firstName||''}" placeholder="שם פרטי"></div>
+        <div class="form-row"><label>שם משפחה</label><input name="lastName" value="${eu.lastName||''}" placeholder="שם משפחה"></div>
       </div>
       <div class="form-row"><label>תפקיד</label>
         <select name="role">
-          <option value="מנהלת רכש">מנהלת רכש</option>
-          <option value='מנכ"לית'>מנכ"לית</option>
+          <option value="עובד" ${eu.role==='עובד'?'selected':''}>עובד</option>
+          <option value="מנהל" ${eu.role==='מנהל'?'selected':''}>מנהל</option>
+          <option value="מנהלת רכש" ${eu.role==='מנהלת רכש'?'selected':''}>מנהלת רכש</option>
+          <option value='מנכ"לית' ${eu.role==='מנכ"לית'?'selected':''}>מנכ"לית</option>
         </select>
       </div>
+      <div class="form-grid">
+        <div class="form-row"><label>טלפון</label><input name="phone" value="${eu.phone||''}" type="tel" placeholder="050-0000000"></div>
+        <div class="form-row"><label>אימייל</label><input name="email" value="${eu.email||''}" type="email" placeholder="name@example.com"></div>
+      </div>
+      <div class="form-row"><label>הערות</label><textarea name="notes" placeholder="תפקיד נוסף, הערות...">${eu.notes||''}</textarea></div>
     </form>`;
     footer=`<button class="btn btn-secondary" onclick="closeModal()">ביטול</button>
-      <button class="btn btn-primary" onclick="submitUser()">הוסף</button>`;
+      <button class="btn btn-primary" onclick="submitUser()">${eu.id?'שמור שינויים':'הוסף משתמש'}</button>`;
   }
 
   return `<div class="modal-overlay" onclick="if(event.target===this)closeModal()">
